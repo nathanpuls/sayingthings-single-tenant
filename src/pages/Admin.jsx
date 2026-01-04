@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { auth, loginWithGoogle, logout, db } from "../lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query } from "firebase/firestore";
+import { collection, onSnapshot, addDoc, updateDoc, deleteDoc, doc, query, writeBatch } from "firebase/firestore";
 import { Link } from "react-router-dom";
-import { Trash2, Edit2, Plus, Save, X, LogOut, LogIn, UploadCloud, Home } from "lucide-react";
+import { Trash2, Edit2, Plus, Save, X, LogOut, LogIn, UploadCloud, Home, ArrowUp, ArrowDown } from "lucide-react";
 import { demos as staticDemos } from "../content/demos";
 
 export default function Admin() {
@@ -95,6 +95,29 @@ export default function Admin() {
             alert("Error adding demo: " + error.message);
         } finally {
             setUploading(false);
+        }
+    };
+
+    const handleMove = async (index, direction) => {
+        const newDemos = [...demos];
+        const otherIndex = direction === 'up' ? index - 1 : index + 1;
+
+        if (otherIndex < 0 || otherIndex >= newDemos.length) return;
+
+        const batch = writeBatch(db);
+        const item1 = newDemos[index];
+        const item2 = newDemos[otherIndex];
+
+        // Swap order values
+        const tempOrder = item1.order || 0;
+        batch.update(doc(db, "demos", item1.id), { order: item2.order || 0 });
+        batch.update(doc(db, "demos", item2.id), { order: tempOrder });
+
+        try {
+            await batch.commit();
+        } catch (error) {
+            console.error("Error reordering", error);
+            alert("Error reordering: " + error.message);
         }
     };
 
@@ -271,7 +294,7 @@ export default function Admin() {
                             </div>
                         )}
 
-                        {demos.map((demo) => (
+                        {demos.map((demo, index) => (
                             <div key={demo.id} className="p-6 flex flex-col sm:flex-row items-start sm:items-center gap-4 hover:bg-slate-50 transition-colors">
                                 {editingId === demo.id ? (
                                     <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -295,7 +318,26 @@ export default function Admin() {
                                     </div>
                                 )}
 
-                                <div className="flex items-center gap-2 self-end sm:self-center">
+                                <div className="flex items-center gap-1 self-end sm:self-center">
+                                    <div className="flex flex-col gap-1 mr-2 border-r border-slate-100 pr-2">
+                                        <button
+                                            onClick={() => handleMove(index, 'up')}
+                                            disabled={index === 0}
+                                            className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-20 transition-colors"
+                                            title="Move Up"
+                                        >
+                                            <ArrowUp size={16} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleMove(index, 'down')}
+                                            disabled={index === demos.length - 1}
+                                            className="p-1 text-slate-400 hover:text-indigo-600 disabled:opacity-20 transition-colors"
+                                            title="Move Down"
+                                        >
+                                            <ArrowDown size={16} />
+                                        </button>
+                                    </div>
+
                                     {editingId === demo.id ? (
                                         <>
                                             <button
