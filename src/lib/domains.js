@@ -72,13 +72,33 @@ export function generateVerificationToken() {
  */
 export async function verifyDomainOwnership(domain, token) {
     try {
-        // In production, you'd call a backend API that checks DNS records
-        // For now, we'll do a simple check
-        // You'll need to implement a serverless function or backend endpoint for this
+        // Check using Cloudflare DNS over HTTPS (works in browser!)
+        const checkDns = async (provider) => {
+            const hostname = `_sayingthings-verify.${domain}`;
+            const url = `${provider}?name=${hostname}&type=TXT`;
 
-        const response = await fetch(`/api/verify-domain?domain=${domain}&token=${token}`);
-        const result = await response.json();
-        return result.verified;
+            const res = await fetch(url, {
+                headers: { 'Accept': 'application/dns-json' }
+            });
+            const data = await res.json();
+
+            if (data.Answer) {
+                // Check if any TXT record contains the token
+                // Records are usually quoted like "token-value"
+                return data.Answer.some(record => record.data.includes(token));
+            }
+            return false;
+        };
+
+        // Try Cloudflare first
+        let verified = await checkDns('https://cloudflare-dns.com/dns-query');
+
+        // Backup: Google DNS
+        if (!verified) {
+            verified = await checkDns('https://dns.google/resolve');
+        }
+
+        return verified;
     } catch (err) {
         console.error('Error verifying domain:', err);
         return false;
