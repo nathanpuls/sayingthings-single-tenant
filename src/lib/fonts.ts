@@ -11,7 +11,7 @@ export const fonts = [
     { name: 'Merriweather', value: 'Merriweather' },
 ];
 
-export const applyFont = (fontName) => {
+export const applyFont = (fontName: string) => {
     if (!fontName) return;
 
     const font = fonts.find(f => f.name === fontName) || fonts[0];
@@ -21,7 +21,7 @@ export const applyFont = (fontName) => {
 
     // 2. Load Google Font
     const linkId = 'dynamic-font-link';
-    let link = document.getElementById(linkId);
+    let link = document.getElementById(linkId) as HTMLLinkElement;
 
     if (!link) {
         link = document.createElement('link');
@@ -48,3 +48,4 @@ export const loadAllFonts = () => {
     const families = fonts.map(f => `family=${f.value.replace(/\s+/g, '+')}:wght@${weights}`).join('&');
     link.href = `https://fonts.googleapis.com/css2?${families}&display=swap`;
 };
+

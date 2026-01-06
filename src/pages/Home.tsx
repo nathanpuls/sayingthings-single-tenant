@@ -1,18 +1,50 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import { getUserIdFromDomain, isCustomDomain } from "../lib/domains";
-import { demos as staticDemos } from "../content/demos";
+import { getUserIdFromDomain } from "../lib/domains";
+// import { demos as staticDemos } from "../content/demos"; // Unused
 import { applyFont } from "../lib/fonts";
 import AudioPlayer from "../components/AudioPlayer";
-import VideoCard from "../components/VideoCard";
-import { Mic, Music, Video, Users, MessageSquare, User, Mail, Phone, Menu, X, Play, Pause, Settings, ChevronDown, Check } from "lucide-react";
+// import VideoCard from "../components/VideoCard"; // Unused
+import { Mic, Video, Users, MessageSquare, User, Mail, Phone, Menu, X, Play, Pause, Check, Settings, ChevronDown, LogIn, Sparkles, Zap, Globe, Layout, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import FadeInSection from "../components/FadeInSection";
+import { Database } from "../lib/database.types";
+
+
+// Types
+type Demo = Database['public']['Tables']['demos']['Row'];
+type VideoItem = Database['public']['Tables']['videos']['Row'];
+type StudioGear = Database['public']['Tables']['studio_gear']['Row'];
+type Client = Database['public']['Tables']['clients']['Row'];
+type Review = Database['public']['Tables']['reviews']['Row'];
+type SiteSettings = Database['public']['Tables']['site_settings']['Row'];
+
+interface SiteContent {
+  heroTitle: string;
+  heroSubtitle: string;
+  aboutTitle: string;
+  aboutText: string;
+  contactEmail: string;
+  contactPhone: string;
+  siteName: string;
+  profileImage: string;
+  profileCartoon: string;
+  showCartoon: boolean;
+  clientsGrayscale: boolean;
+  themeColor: string;
+  sectionOrder: string[];
+  hiddenSections: string[];
+  font: string;
+  web3FormsKey: string;
+  showContactForm: boolean;
+}
 
 export default function Home() {
   const { uid } = useParams();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [showLanding, setShowLanding] = useState<boolean>(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   // Scroll State
   const [isScrolled, setIsScrolled] = useState(false);
   const [showMiniPlayer, setShowMiniPlayer] = useState(false);
@@ -21,7 +53,7 @@ export default function Home() {
   // Contact Form State
   const [contactForm, setContactForm] = useState({ name: "", email: "", message: "", botField: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState(null); // 'success' | 'error'
+  const [submitStatus, setSubmitStatus] = useState<'success' | 'error' | null>(null);
   const [captcha, setCaptcha] = useState({ a: 0, b: 0, userValue: "" });
 
   const generateCaptcha = () => {
@@ -37,22 +69,22 @@ export default function Home() {
   }, []);
 
   // Audio State
-  const [demos, setDemos] = useState([]);
+  const [demos, setDemos] = useState<Demo[]>([]);
   const [currentAudioIndex, setCurrentAudioIndex] = useState(0);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [audioCurrentTime, setAudioCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
   const [miniPlayerOpen, setMiniPlayerOpen] = useState(false);
-  const audioRef = useRef(null);
-  const miniPlayerRef = useRef(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const miniPlayerRef = useRef<HTMLDivElement>(null);
 
   // Audio Handlers
   const currentAudioTrack = demos[currentAudioIndex];
 
   // Close mini player dropdown on outside click
   useEffect(() => {
-    function handleClickOutside(event) {
-      if (miniPlayerRef.current && !miniPlayerRef.current.contains(event.target)) {
+    function handleClickOutside(event: MouseEvent) {
+      if (miniPlayerRef.current && !miniPlayerRef.current.contains(event.target as Node)) {
         setMiniPlayerOpen(false);
       }
     }
@@ -63,7 +95,7 @@ export default function Home() {
   }, [miniPlayerRef]);
 
   // Utility to convert various link types (like Google Drive) to direct play links
-  const getPlayableUrl = (url) => {
+  const getPlayableUrl = (url: string) => {
     if (!url) return "";
     const driveMatch = url.match(/\/file\/d\/([^\/]+)/) || url.match(/id=([^\&]+)/);
     if (driveMatch && (url.includes("drive.google.com") || url.includes("docs.google.com"))) {
@@ -105,7 +137,7 @@ export default function Home() {
     setCurrentAudioIndex(prev => (prev + 1) % demos.length);
   };
 
-  const handleAudioSeek = (time) => {
+  const handleAudioSeek = (time: number) => {
     if (audioRef.current) {
       audioRef.current.currentTime = time;
       setAudioCurrentTime(time);
@@ -116,13 +148,13 @@ export default function Home() {
   const prevTrack = () => setCurrentAudioIndex(prev => (prev - 1 + demos.length) % demos.length);
 
   // Firestore Data States
-  const [studioGear, setStudioGear] = useState([]);
-  const [clients, setClients] = useState([]);
-  const [reviews, setReviews] = useState([]);
-  const [videos, setVideos] = useState([]);
-  const [activeVideo, setActiveVideo] = useState(null);
+  const [studioGear, setStudioGear] = useState<StudioGear[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [videos, setVideos] = useState<VideoItem[]>([]);
+  const [activeVideo, setActiveVideo] = useState<VideoItem | null>(null);
   const [isPlayingVideo, setIsPlayingVideo] = useState(false);
-  const videoRef = useRef(null);
+  const videoRef = useRef<HTMLIFrameElement>(null);
 
   // Set initial active video when videos load
   useEffect(() => {
@@ -132,7 +164,7 @@ export default function Home() {
     }
   }, [videos]);
 
-  const handleVideoToggle = (vid) => {
+  const handleVideoToggle = (vid: VideoItem) => {
     // Stop audio when playing video
     setIsAudioPlaying(false);
 
@@ -140,7 +172,7 @@ export default function Home() {
       // Toggle current video
       const action = isPlayingVideo ? 'pauseVideo' : 'playVideo';
       if (videoRef.current) {
-        videoRef.current.contentWindow.postMessage(JSON.stringify({
+        videoRef.current.contentWindow?.postMessage(JSON.stringify({
           event: 'command',
           func: action,
           args: []
@@ -154,7 +186,7 @@ export default function Home() {
     }
   };
 
-  const [siteContent, setSiteContent] = useState({
+  const [siteContent, setSiteContent] = useState<SiteContent>({
     heroTitle: "",
     heroSubtitle: "",
     aboutTitle: "",
@@ -182,32 +214,34 @@ export default function Home() {
     window.addEventListener("scroll", handleScroll);
 
     const fetchData = async () => {
+      // Also check if current viewer is logged in
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+
       // Check if we're on a custom domain first
-      let userId = uid;
+      let userId: string | null | undefined = uid;
 
       if (!userId) {
         // Try to get user ID from custom domain
         userId = await getUserIdFromDomain();
       }
 
-      // If still no user ID, just show loading false (no data to load)
+      // If still no user ID, show the landing page for 'Built'
       if (!userId) {
+        setShowLanding(true);
         setLoading(false);
         return;
       }
 
-      const fetchTable = async (table) => {
-        const { data, error } = await supabase.from(table).select('*').eq('user_id', userId).order('order', { ascending: true });
+      const fetchTable = async <T extends keyof Database['public']['Tables']>(table: T) => {
+        const { data, error } = await supabase.from(table).select('*').eq('user_id' as any, userId! as any).order('order', { ascending: true });
         if (error) console.error(`Error fetching ${table}:`, error);
         return data || [];
       };
 
-      setDemos(await fetchTable('demos'));
-      setStudioGear(await fetchTable('studio_gear'));
-      setClients(await fetchTable('clients'));
-      setReviews(await fetchTable('reviews'));
-      setVideos(await fetchTable('videos'));
-      const { data: settings } = await supabase.from('site_settings').select('*').eq('user_id', userId).single();
+      // Fetch settings first (critical for initial render/background/colors)
+      const { data: settingsData } = await supabase.from('site_settings').select('*').eq('user_id', userId).single();
+      const settings = settingsData as SiteSettings | null;
       if (settings) {
         setSiteContent({
           heroTitle: settings.hero_title || "",
@@ -222,23 +256,36 @@ export default function Home() {
           showCartoon: settings.show_cartoon !== false,
           clientsGrayscale: !!settings.clients_grayscale,
           themeColor: settings.theme_color || "#6366f1",
-          sectionOrder: settings.section_order || ["demos", "projects", "studio", "clients", "reviews", "about", "contact"],
-          hiddenSections: settings.hidden_sections || [],
+          sectionOrder: (settings.section_order as any) || ["demos", "projects", "studio", "clients", "reviews", "about", "contact"],
+          hiddenSections: (settings.hidden_sections as any) || [],
           font: settings.font || "Outfit",
           web3FormsKey: settings.web3_forms_key || "",
           showContactForm: settings.show_contact_form !== false
         });
-
-        applyFont(settings.font || "Outfit");
       }
+
+      // Hide loader as soon as settings are in (so user sees the site structure)
       setLoading(false);
+
+      // Fetch non-critical content in parallel
+      Promise.all([
+        fetchTable('demos'),
+        fetchTable('studio_gear'),
+        fetchTable('clients'),
+        fetchTable('reviews'),
+        fetchTable('videos')
+      ]).then(([demosData, studioData, clientsData, reviewsData, videosData]) => {
+        setDemos(demosData);
+        setStudioGear(studioData);
+        setClients(clientsData);
+        setReviews(reviewsData);
+        setVideos(videosData);
+      });
     };
 
     fetchData();
 
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-    };
+    return () => window.removeEventListener("scroll", handleScroll);
   }, [uid]);
 
   // Handle Hash Scrolling
@@ -266,6 +313,15 @@ export default function Home() {
     }
   }, [loading]);
 
+  // Update document title
+  useEffect(() => {
+    if (showLanding) {
+      document.title = "Built.at";
+    } else if (siteContent.siteName) {
+      document.title = siteContent.siteName;
+    }
+  }, [showLanding, siteContent.siteName]);
+
   const navLinkDetails = {
     demos: "Demos",
     projects: "Projects",
@@ -279,11 +335,21 @@ export default function Home() {
   const navLinks = siteContent.sectionOrder
     .filter(id => !(siteContent.hiddenSections || []).includes(id))
     .map(id => ({
-      name: navLinkDetails[id] || id.charAt(0).toUpperCase() + id.slice(1),
+      name: navLinkDetails[id as keyof typeof navLinkDetails] || id.charAt(0).toUpperCase() + id.slice(1),
       href: `#${id}`
     }));
 
-  const handleContactSubmit = async (e) => {
+  const handleLogin = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin + '/admin'
+      }
+    });
+    if (error) console.error("Login failed:", error.message);
+  };
+
+  const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!uid) return;
 
@@ -305,7 +371,7 @@ export default function Home() {
     try {
       // 1. Save to Supabase (Database backup)
       try {
-        const { error } = await supabase.from('messages').insert([{
+        const { error } = await (supabase.from('messages') as any).insert([{
           user_id: uid,
           name: contactForm.name,
           email: contactForm.email,
@@ -349,7 +415,126 @@ export default function Home() {
     }
   };
 
-  if (loading) return <div className="min-h-screen bg-white" />;
+  if (loading) return <div className="min-h-screen grid place-items-center bg-white"><div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>;
+
+  if (showLanding) {
+    return (
+      <div className="min-h-screen bg-slate-50 font-sans text-slate-900 overflow-x-hidden">
+        {/* Navbar */}
+        <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? "bg-white/80 backdrop-blur-md shadow-sm py-4 border-b border-slate-200" : "bg-transparent py-6"}`}>
+          <div className="container mx-auto px-6 flex justify-between items-center">
+            <div className="flex items-center gap-2 group">
+              <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200 group-hover:scale-110 transition-transform">
+                <Sparkles size={24} fill="currentColor" />
+              </div>
+              <span className="text-2xl font-bold tracking-tight text-slate-900">Built</span>
+            </div>
+            <div className="flex items-center gap-4">
+              {currentUser ? (
+                <a href="/admin" className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition shadow-lg shadow-indigo-100">
+                  Dashboard <ChevronRight size={18} />
+                </a>
+              ) : (
+                <button onClick={handleLogin} className="flex items-center gap-2 px-6 py-2.5 bg-white text-slate-900 border border-slate-200 rounded-xl font-semibold hover:bg-slate-50 transition shadow-sm">
+                  <LogIn size={18} /> Sign In
+                </button>
+              )}
+            </div>
+          </div>
+        </nav>
+
+        {/* Hero Section */}
+        <section className="relative pt-40 pb-20 px-6 overflow-hidden">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-indigo-50/50 rounded-full blur-3xl -z-10" />
+          <FadeInSection className="container mx-auto text-center max-w-4xl">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-full text-sm font-bold mb-8 animate-bounce">
+              <Zap size={16} fill="currentColor" /> Now in Open Beta
+            </div>
+            <h1 className="text-6xl md:text-8xl font-black text-slate-900 mb-8 tracking-tighter leading-[0.9]">
+              The Portfolio Platform <br />
+              <span className="text-indigo-600">for Creatives.</span>
+            </h1>
+            <p className="text-xl text-slate-500 mb-12 max-w-2xl mx-auto leading-relaxed">
+              Launch your professional portfolio in minutes with dynamic content, custom domains, and blazing fast performance. Designed by creatives, for creatives.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <button
+                onClick={handleLogin}
+                className="w-full sm:w-auto px-10 py-5 bg-indigo-600 text-white rounded-2xl font-bold text-lg hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200 hover:-translate-y-1 flex items-center justify-center gap-3"
+              >
+                Get Started for Free <ChevronRight size={22} />
+              </button>
+              <button className="w-full sm:w-auto px-10 py-5 bg-white text-slate-600 border border-slate-200 rounded-2xl font-bold text-lg hover:bg-slate-50 transition-all">
+                View Showcase
+              </button>
+            </div>
+          </FadeInSection>
+        </section>
+
+        {/* Features Grid */}
+        <section className="py-20 px-6 bg-white">
+          <div className="container mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="p-10 rounded-3xl bg-slate-50 border border-slate-100 group hover:border-indigo-200 transition-all">
+                <div className="w-14 h-14 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <Layout size={28} />
+                </div>
+                <h3 className="text-2xl font-bold mb-4">Dynamic CMS</h3>
+                <p className="text-slate-500 leading-relaxed">
+                  Easily manage your demos, projects, gallery, and reviews from a powerful admin dashboard. Changes reflect instantly.
+                </p>
+              </div>
+              <div className="p-10 rounded-3xl bg-slate-50 border border-slate-100 group hover:border-indigo-200 transition-all">
+                <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <Globe size={28} />
+                </div>
+                <h3 className="text-2xl font-bold mb-4">Custom Domains</h3>
+                <p className="text-slate-500 leading-relaxed">
+                  Connect your own domain name with free SSL. Build your brand on a foundation that you truly own.
+                </p>
+              </div>
+              <div className="p-10 rounded-3xl bg-slate-50 border border-slate-100 group hover:border-indigo-200 transition-all">
+                <div className="w-14 h-14 bg-orange-100 text-orange-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                  <Zap size={28} />
+                </div>
+                <h3 className="text-2xl font-bold mb-4">Blazing Performance</h3>
+                <p className="text-slate-500 leading-relaxed">
+                  Optimized for speed and SEO. Your portfolio loads in milliseconds, ensuring you never miss an opportunity.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* CTA Footer */}
+        <section className="py-32 px-6 relative overflow-hidden text-center">
+          <div className="absolute inset-0 bg-indigo-600 -z-10" />
+          <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,_white_0%,_transparent_70%)] opacity-10 -z-10" />
+          <FadeInSection className="container mx-auto max-w-3xl">
+            <h2 className="text-4xl md:text-5xl font-black text-white mb-8 tracking-tight">
+              Ready to elevate <br /> your online presence?
+            </h2>
+            <button
+              onClick={handleLogin}
+              className="px-12 py-6 bg-white text-indigo-600 rounded-2xl font-black text-xl hover:bg-slate-50 transition-all shadow-2xl shadow-black/20 hover:-translate-y-1 flex items-center justify-center gap-3 mx-auto"
+            >
+              Start Building Now
+            </button>
+          </FadeInSection>
+        </section>
+
+        <footer className="py-12 bg-slate-900 text-slate-500 text-center">
+          <div className="container mx-auto px-6">
+            <div className="flex items-center justify-center gap-2 mb-6 opacity-50">
+              <Sparkles size={20} fill="currentColor" />
+              <span className="text-xl font-bold tracking-tight text-white">Built</span>
+            </div>
+            <p className="text-sm">© {new Date().getFullYear()} Built Platform. All rights reserved.</p>
+          </div>
+        </footer>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
@@ -362,7 +547,7 @@ export default function Home() {
       />
       <style>{`
         :root {
-          --theme-primary: ${siteContent.themeColor || '#4f46e5'};
+          --theme-primary: ${siteContent.themeColor || '#6366f1'};
         }
       `}</style>
       {/* Navbar */}
@@ -667,7 +852,7 @@ export default function Home() {
                               type="text"
                               name="botField"
                               style={{ display: 'none' }}
-                              tabIndex="-1"
+                              tabIndex={-1}
                               autoComplete="off"
                               value={contactForm.botField}
                               onChange={e => setContactForm({ ...contactForm, botField: e.target.value })}
@@ -701,7 +886,7 @@ export default function Home() {
                               <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">Message</label>
                               <textarea
                                 required
-                                rows="4"
+                                rows={4}
                                 placeholder="Tell me about your project..."
                                 value={contactForm.message}
                                 onChange={e => setContactForm({ ...contactForm, message: e.target.value })}
@@ -786,7 +971,7 @@ export default function Home() {
               <div ref={miniPlayerRef} className="flex items-center justify-between gap-4">
                 {/* Left: Play/Pause Button */}
                 <button
-                  onClick={isPlayingVideo ? () => handleVideoToggle(activeVideo) : toggleAudioPlay}
+                  onClick={isPlayingVideo && activeVideo ? () => handleVideoToggle(activeVideo) : toggleAudioPlay}
                   className="p-3 bg-[var(--theme-primary)] rounded-full text-white hover:brightness-110 shadow-lg transition-all active:scale-95 flex-shrink-0"
                   aria-label={isAudioPlaying || isPlayingVideo ? "Pause" : "Play"}
                 >
@@ -876,23 +1061,25 @@ export default function Home() {
                     )}
                   </AnimatePresence>
                 </div>
+
+                {/* Far Right: Admin Settings */}
+                <a href="/admin" className="p-2 text-slate-400 hover:text-[var(--theme-primary)] transition-colors flex-shrink-0" title="Admin Settings">
+                  <Settings size={20} />
+                </a>
               </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <footer className="pt-2 pb-12 text-center text-slate-400 text-sm bg-slate-50 relative flex justify-center items-center">
+      <footer className="pt-2 pb-32 text-center text-slate-400 text-sm bg-slate-50 relative flex justify-center items-center">
         <p>Designed by <a href="https://nathanpuls.com" className="hover:text-[var(--theme-primary)] text-slate-500 transition-colors">Nathan Puls</a></p>
-        <a href="/admin" className="absolute right-4 top-1/2 -translate-y-1/2 opacity-30 hover:opacity-100 transition-opacity p-2" title="Admin Settings">
-          <Settings size={16} />
-        </a>
       </footer>
     </div>
   );
 }
 
-function SectionHeader({ title, icon }) {
+function SectionHeader({ title, icon }: { title: string; icon: ReactNode }) {
   return (
     <div className="flex items-center justify-center gap-3 mb-12">
       <span className="p-3 bg-slate-100 rounded-full text-[var(--theme-primary)] shadow-sm">{icon}</span>

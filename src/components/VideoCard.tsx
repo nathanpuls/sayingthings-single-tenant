@@ -1,9 +1,24 @@
 import { useState } from "react";
 import { Play } from "lucide-react";
 
-export default function VideoCard({ video }) {
+
+// To support both potential usages (legacy camelCase or DB snake_case), we can define a union or just use DB type if we are sure.
+// Since it's unused in Home, it's safer to align with DB types for future use.
+// But `video.youtubeId` implies camelCase.
+// I'll make it generic or use a specific interface.
+
+interface VideoCardProps {
+    video: {
+        youtubeId?: string;
+        youtube_id?: string;
+        title: string;
+    }
+}
+
+export default function VideoCard({ video }: VideoCardProps) {
     const [isPlaying, setIsPlaying] = useState(false);
-    const [imgSrc, setImgSrc] = useState(`https://img.youtube.com/vi/${video.youtubeId}/maxresdefault.jpg`);
+    const id = video.youtubeId || video.youtube_id || "";
+    const [imgSrc, setImgSrc] = useState(`https://img.youtube.com/vi/${id}/maxresdefault.jpg`);
 
     return (
         <div
@@ -14,7 +29,7 @@ export default function VideoCard({ video }) {
                     <iframe
                         width="100%"
                         height="100%"
-                        src={`https://www.youtube.com/embed/${video.youtubeId}?autoplay=1`}
+                        src={`https://www.youtube.com/embed/${id}?autoplay=1`}
                         title={video.title}
                         frameBorder="0"
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -32,7 +47,7 @@ export default function VideoCard({ video }) {
                             src={imgSrc}
                             alt={video.title}
                             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                            onError={() => setImgSrc(`https://img.youtube.com/vi/${video.youtubeId}/hqdefault.jpg`)}
+                            onError={() => setImgSrc(`https://img.youtube.com/vi/${id}/hqdefault.jpg`)}
                         />
 
                         {/* Overlay */}
@@ -69,3 +84,4 @@ export default function VideoCard({ video }) {
         </div>
     );
 }
+

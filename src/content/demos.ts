@@ -1,4 +1,4 @@
-export const demos = [
+export const demos: { name: string; url: string; }[] = [
     {
         name: "Commercial",
         url: "https://sayingthings.s3.amazonaws.com/vo-audio/cfa8e725-8bb0-4e9b-864c-c67e5be8c28a_CommercialNathanPulsVoiceOvermp3",
@@ -21,3 +21,4 @@ export const demos = [
 // 1. To Add: Copy one of the blocks above ({ name: ..., url: ... }), paste it, and update the details.
 // 2. To Edit: Change the "name" or "url" text inside the quotes.
 // 3. To Delete: Remove the entire block (including the curly braces {} and the comma).
+

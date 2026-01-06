@@ -1,28 +1,75 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, ReactNode, ChangeEvent } from "react";
 import { supabase } from "../lib/supabase";
 import { Link } from "react-router-dom";
 import {
-    Trash2, Edit2, Plus, Save, X, LogOut, LogIn, UploadCloud,
-    Home, ArrowUp, ArrowDown, Music, Video, Mic, Users,
-    MessageSquare, Contact, Info, Settings, Share2, Type, GripVertical, Mail, Globe, CheckCircle, AlertCircle, Copy, Eye, EyeOff
+    Trash2, Edit2, Save, X, LogOut, LogIn, UploadCloud,
+    Home, Music, Video, Mic, Users,
+    MessageSquare, Contact, Info, Settings, Share2, GripVertical, Mail, Globe, CheckCircle, AlertCircle, Copy, Eye, EyeOff
 } from "lucide-react";
 import { motion, Reorder, AnimatePresence } from "framer-motion";
 import { getUserCustomDomains, addCustomDomain, verifyDomainOwnership } from "../lib/domains";
-
 import { fonts, applyFont, loadAllFonts } from "../lib/fonts";
+import { Database } from "../lib/database.types";
+import { User as SupabaseUser } from "@supabase/supabase-js";
+
+// Type Alias
+type Demo = Database['public']['Tables']['demos']['Row'];
+type VideoItem = Database['public']['Tables']['videos']['Row'];
+type StudioGear = Database['public']['Tables']['studio_gear']['Row'];
+type Client = Database['public']['Tables']['clients']['Row'];
+type Review = Database['public']['Tables']['reviews']['Row'];
+type Message = Database['public']['Tables']['messages']['Row'];
+// type CustomDomain = Database['public']['Tables']['custom_domains']['Row'];
+
+// Note: site_settings is an object, not array
+type SiteSettings = Database['public']['Tables']['site_settings']['Row'];
+
+interface SiteContentState {
+    heroTitle: string;
+    heroSubtitle: string;
+    aboutTitle: string;
+    aboutText: string;
+    contactEmail: string;
+    contactPhone: string;
+    siteName: string;
+    profileImage: string;
+    profileCartoon: string;
+    showCartoon: boolean;
+    clientsGrayscale: boolean;
+    themeColor: string;
+    sectionOrder: string[];
+    hiddenSections: string[];
+    font: string;
+    web3FormsKey: string;
+    showContactForm: boolean;
+}
 
 // const authorizedEmail = "natepuls@gmail.com";
 const authorizedEmail = ""; // Disabled for multi-user support
 
+// Helper Component Props
+interface FormInputProps {
+    label: string;
+    value: string;
+    onChange: (val: string) => void;
+    placeholder?: string;
+    textarea?: boolean;
+    type?: string;
+    containerClass?: string;
+}
+
+// Move FormInput/FileUploader/Toggle/SectionReorder/ItemList definitions later or type them inline if they are in this file.
+// Assuming they are defined at bottom of file. Need to update their signatures.
+
 export default function Admin() {
-    const [user, setUser] = useState(null);
+    const [user, setUser] = useState<SupabaseUser | null>(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState("demos");
     const [uploading, setUploading] = useState(false);
-    const [toast, setToast] = useState(null); // { message, type: 'success' | 'error' }
-    const toastTimeoutRef = useRef(null);
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+    const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    const showToast = (message, type = 'success') => {
+    const showToast = (message: string, type: 'success' | 'error' = 'success') => {
         if (toastTimeoutRef.current) {
             clearTimeout(toastTimeoutRef.current);
         }
@@ -35,14 +82,14 @@ export default function Admin() {
     };
 
     // Data States
-    const [demos, setDemos] = useState([]);
-    const [videos, setVideos] = useState([]);
-    const [studio, setStudio] = useState([]);
-    const [clients, setClients] = useState([]);
-    const [reviews, setReviews] = useState([]);
-    const [messages, setMessages] = useState([]);
-    const [customDomains, setCustomDomains] = useState([]);
-    const [siteContent, setSiteContent] = useState({
+    const [demos, setDemos] = useState<Demo[]>([]);
+    const [videos, setVideos] = useState<VideoItem[]>([]);
+    const [studio, setStudio] = useState<StudioGear[]>([]);
+    const [clients, setClients] = useState<Client[]>([]);
+    const [reviews, setReviews] = useState<Review[]>([]);
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [customDomains, setCustomDomains] = useState<any[]>([]); // Using any for customDomains as type might differ slightly from DB
+    const [siteContent, setSiteContent] = useState<SiteContentState>({
         heroTitle: "",
         heroSubtitle: "",
         aboutTitle: "",
@@ -62,9 +109,12 @@ export default function Admin() {
         showContactForm: true
     });
 
+
+
+
     // Form States
-    const [editingId, setEditingId] = useState(null);
-    const [editForm, setEditForm] = useState({});
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editForm, setEditForm] = useState<any>({});
 
     // Create Form States
     const [newDemo, setNewDemo] = useState({ name: "", url: "" });
@@ -74,10 +124,10 @@ export default function Admin() {
     const [newReview, setNewReview] = useState({ text: "", author: "" });
     const [newDomain, setNewDomain] = useState("");
     const [fetchingTitle, setFetchingTitle] = useState(false);
-    const [deleteModal, setDeleteModal] = useState({ isOpen: false, collName: null, id: null });
+    const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; collName: string | null; id: string | null }>({ isOpen: false, collName: null, id: null });
 
     // Fetch YouTube video title
-    const fetchYouTubeTitle = async (videoIdOrUrl) => {
+    const fetchYouTubeTitle = async (videoIdOrUrl: string) => {
         try {
             setFetchingTitle(true);
 
@@ -129,14 +179,20 @@ export default function Admin() {
     useEffect(() => {
         // Get initial session
         supabase.auth.getSession().then(({ data: { session } }) => {
-            setUser(session?.user ?? null);
-            setLoading(false);
+            const currentUser = session?.user ?? null;
+            setUser(currentUser);
+            if (!currentUser) {
+                setLoading(false);
+            }
         });
 
         // Listen for changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-            setUser(session?.user ?? null);
-            setLoading(false);
+            const currentUser = session?.user ?? null;
+            setUser(currentUser);
+            if (!currentUser) {
+                setLoading(false);
+            }
         });
 
         return () => subscription.unsubscribe();
@@ -147,38 +203,20 @@ export default function Admin() {
         if (!user) return;
 
         // Fetch ordered lists
-        const fetchTable = async (table) => {
+        const fetchTable = async <T extends keyof Database['public']['Tables']>(table: T) => {
             const { data, error } = await supabase
                 .from(table)
                 .select('*')
-                .eq('user_id', user.id)
+                .eq('user_id' as any, user!.id as any)
                 .order('order', { ascending: true });
             if (error) console.error(`Error fetching ${table}:`, error);
             return data || [];
         };
 
-        setDemos(await fetchTable('demos'));
-        setVideos(await fetchTable('videos'));
-        setStudio(await fetchTable('studio_gear')); // note table name mapping
-        setClients(await fetchTable('clients'));
-        setReviews(await fetchTable('reviews'));
-        setCustomDomains(await getUserCustomDomains());
+        // Fetch settings first (critical for layout/branding)
+        const { data: settingsData } = await supabase.from('site_settings').select('*').eq('user_id', user.id).single();
+        const settings = settingsData as SiteSettings | null;
 
-        // Fetch messages - no 'order' column needed, use 'created_at'
-        const { data: msgs, error: msgError } = await supabase
-            .from('messages')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false });
-        if (msgError) console.error("Error fetching messages:", msgError);
-        setMessages(msgs || []);
-
-        // Fetch settings - singular row per user
-        const { data: settings } = await supabase
-            .from('site_settings')
-            .select('*')
-            .eq('user_id', user.id)
-            .single();
         if (settings) {
             setSiteContent({
                 heroTitle: settings.hero_title || "",
@@ -193,21 +231,54 @@ export default function Admin() {
                 showCartoon: settings.show_cartoon !== false,
                 clientsGrayscale: !!settings.clients_grayscale,
                 themeColor: settings.theme_color || "#6366f1",
-                sectionOrder: settings.section_order || ["demos", "projects", "studio", "clients", "reviews", "about", "contact"],
+                sectionOrder: (settings.section_order as any) || ["demos", "projects", "studio", "clients", "reviews", "about", "contact"],
                 font: settings.font || "Outfit",
                 web3FormsKey: settings.web3_forms_key || "",
                 showContactForm: settings.show_contact_form !== false,
-                hiddenSections: settings.hidden_sections || []
+                hiddenSections: (settings.hidden_sections as any) || []
             });
-            // Apply font immediately just in case
-            applyFont(settings.font || "Outfit");
+            if (settings.font) applyFont(settings.font);
         }
+
+        // Now that settings are loaded, we can show the UI shell
+        setLoading(false);
+
+        // Fetch remaining data in parallel without blocking the UI
+        Promise.all([
+            fetchTable('demos'),
+            fetchTable('videos'),
+            fetchTable('studio_gear'),
+            fetchTable('clients'),
+            fetchTable('reviews'),
+            getUserCustomDomains(),
+            supabase.from('messages').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+        ]).then(([demosData, videosData, studioData, clientsData, reviewsData, domainsData, msgsData]) => {
+            setDemos(demosData);
+            setVideos(videosData);
+            setStudio(studioData);
+            setClients(clientsData);
+            setReviews(reviewsData);
+            setCustomDomains(domainsData);
+            setMessages((msgsData as any).data || []);
+        });
     };
 
     // Fetch data when user changes
     useEffect(() => {
-        if (user) fetchData();
+        if (user) {
+            setLoading(true);
+            fetchData().finally(() => setLoading(false));
+        }
     }, [user]);
+
+    // Update document title
+    useEffect(() => {
+        if (siteContent.siteName) {
+            document.title = `${siteContent.siteName} | Admin`;
+        } else {
+            document.title = "Admin | Built.at";
+        }
+    }, [siteContent.siteName]);
 
     // ------------------------------------------------------------
     // Hash‑based routing for admin tabs (single source of truth)
@@ -244,7 +315,7 @@ export default function Admin() {
     }, []);
 
     // Click handler that also updates the URL hash for bookmarking
-    const handleTabClick = (tabId) => {
+    const handleTabClick = (tabId: string) => {
         setActiveTab(tabId);
         setEditingId(null);
         window.location.hash = tabId;
@@ -265,16 +336,16 @@ export default function Admin() {
     };
 
     // Generic Handlers
-    const addItem = async (collName, data, resetter) => {
+    const addItem = async (collName: string, data: any, resetter: () => void) => {
         setUploading(true);
         try {
             // Map logic names to DB table names if needed
-            const tableName = collName === 'studio' ? 'studio_gear' : collName;
+            let tableName = collName === 'studio' ? 'studio_gear' : collName;
 
             // Get current list size for ordering
             const list = collName === "demos" ? demos : collName === "videos" ? videos : collName === "studio" ? studio : collName === "clients" ? clients : reviews;
 
-            let finalData = { ...data, order: list.length, user_id: user.id };
+            let finalData = { ...data, order: list.length, user_id: user!.id };
 
             // Auto-extract YouTube ID from URL if needed
             if (collName === "videos" && finalData.youtubeId) {
@@ -311,8 +382,8 @@ export default function Admin() {
             }
 
             // DB Column Mapping
-            const dbPayload = {
-                user_id: user.id,
+            const dbPayload: any = {
+                user_id: user!.id,
                 order: list.length
             };
             if (collName === 'videos') {
@@ -325,26 +396,26 @@ export default function Admin() {
                 dbPayload.name = finalData.name; // demos, studio
                 dbPayload.url = finalData.url;   // demos, studio, clients (clients has no name)
             }
-            if (collName === 'clients') {
-                dbPayload.url = finalData.url;
-                delete dbPayload.name;
-            }
+            tableName = collName === 'videos' ? 'videos' :
+                collName === 'studio' ? 'studio_gear' :
+                    collName === 'clients' ? 'clients' :
+                        collName === 'reviews' ? 'reviews' : 'demos';
 
-            const { error } = await supabase.from(tableName).insert([dbPayload]);
+            const { error } = await (supabase.from(tableName as any) as any).insert([dbPayload]);
             if (error) throw error;
 
             console.log(`✅ ${collName} item added successfully!`);
             resetter();
             fetchData(); // Refresh UI
-        } catch (error) {
+        } catch (error: any) {
             console.error(`❌ Error adding ${collName}:`, error);
-            showToast(`Error adding item: ` + error.message, "error");
+            showToast(`Error adding item: ` + (error.message || 'Unknown error'), "error");
         } finally {
             setUploading(false);
         }
     };
 
-    const deleteItem = async (collName, id) => {
+    const deleteItem = async (collName: string, id: string) => {
         setDeleteModal({ isOpen: true, collName, id });
     };
 
@@ -353,14 +424,14 @@ export default function Admin() {
         setDeleteModal({ ...deleteModal, isOpen: false });
         const tableName = collName === 'studio' ? 'studio_gear' : collName;
         try {
-            const { error } = await supabase.from(tableName).delete().eq('id', id);
+            const { error } = await (supabase.from(tableName as any) as any).delete().eq('id', id);
             if (error) throw error;
             fetchData();
         }
-        catch (error) { showToast("Error deleting: " + error.message, "error"); }
+        catch (error: any) { showToast("Error deleting: " + (error.message || 'Unknown error'), "error"); }
     };
 
-    const handleReorder = async (collName, newItems) => {
+    const handleReorder = async (collName: string, newItems: any[]) => {
         // 1. Optimistic Update
         if (collName === "demos") setDemos(newItems);
         else if (collName === "videos") setVideos(newItems);
@@ -378,24 +449,24 @@ export default function Admin() {
                 order: index
             }));
 
-            const { error } = await supabase.from(tableName).upsert(updates);
+            const { error } = await (supabase.from(tableName as any) as any).upsert(updates);
             if (error) throw error;
-        } catch (error) {
+        } catch (error: any) {
             console.error("Reorder failed:", error);
-            showToast("Error saving order: " + error.message, "error");
+            showToast("Error saving order: " + (error.message || 'Unknown error'), "error");
             fetchData(); // Revert on error
         }
     };
 
-    const updateItem = async (collName, id, directPayload = null) => {
+    const updateItem = async (collName: string, id: string, directPayload: any = null) => {
         setUploading(true);
         try {
             const raw = directPayload || editForm;
-            const { id: _, ...cleanRaw } = raw;
+            const { id: _ } = raw;
             const tableName = collName === 'studio' ? 'studio_gear' : collName;
 
             // Map keys
-            const dbPayload = {};
+            const dbPayload: any = {};
             if (collName === 'videos') {
                 if (raw.title) dbPayload.title = raw.title;
                 if (raw.title !== undefined) dbPayload.title = raw.title;
@@ -408,13 +479,13 @@ export default function Admin() {
                 if (raw.url !== undefined) dbPayload.url = raw.url;
             }
 
-            const { error } = await supabase.from(tableName).update(dbPayload).eq('id', id);
+            const { error } = await (supabase.from(tableName as any) as any).update(dbPayload).eq('id', id);
             if (error) throw error;
 
             setEditingId(null);
             fetchData();
-        } catch (error) {
-            showToast("Error updating: " + error.message, "error");
+        } catch (error: any) {
+            showToast("Error updating: " + (error.message || 'Unknown error'), "error");
         } finally {
             setUploading(false);
         }
@@ -422,12 +493,12 @@ export default function Admin() {
 
 
 
-    const saveSettings = async (e) => {
+    const saveSettings = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
         setUploading(true);
         try {
             const payload = {
-                user_id: user.id,
+                user_id: user!.id,
                 hero_title: siteContent.heroTitle,
                 hero_subtitle: siteContent.heroSubtitle,
                 about_title: siteContent.aboutTitle,
@@ -447,19 +518,19 @@ export default function Admin() {
                 hidden_sections: siteContent.hiddenSections
             };
 
-            const { error } = await supabase.from('site_settings').upsert(payload, { onConflict: 'user_id' });
+            const { error } = await (supabase.from('site_settings' as any) as any).upsert(payload, { onConflict: 'user_id' });
             if (error) throw error;
 
             showToast("Site content saved successfully!");
-        } catch (error) {
+        } catch (error: any) {
             console.error("Save failed:", error);
-            showToast("Error saving settings: " + error.message, "error");
+            showToast("Error saving settings: " + (error.message || 'Unknown error'), "error");
         } finally {
             setUploading(false);
         }
     };
 
-    const handleAddDomain = async (e) => {
+    const handleAddDomain = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newDomain) return;
         setUploading(true);
@@ -472,7 +543,7 @@ export default function Admin() {
             } else {
                 throw result.error;
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Add domain failed:", error);
             showToast(error.message || "Failed to add domain", "error");
         } finally {
@@ -482,7 +553,7 @@ export default function Admin() {
 
 
 
-    const handleCheckVerification = async (domain, token) => {
+    const handleCheckVerification = async (domain: string, token: string) => {
         setUploading(true);
         try {
             const verified = await verifyDomainOwnership(domain, token);
@@ -493,7 +564,7 @@ export default function Admin() {
                 // But let's assume if it returned true, we are good.
 
                 // Manually update DB for now since we are client-side admin
-                await supabase.from('custom_domains').update({ verified: true }).eq('domain', domain);
+                await (supabase.from('custom_domains' as any) as any).update({ verified: true }).eq('domain', domain);
 
                 showToast("Domain verified successfully!", "success");
                 setCustomDomains(await getUserCustomDomains());
@@ -543,11 +614,11 @@ export default function Admin() {
     const currentTabTitle = tabs.find(t => t.id === activeTab)?.name;
 
     return (
-        <div className="min-h-screen bg-slate-50 flex" style={{ '--theme-primary': siteContent.themeColor || '#4f46e5' }}>
+        <div className="min-h-screen bg-slate-50 flex" style={{ '--theme-primary': siteContent.themeColor || '#6366f1' } as any}>
             {/* Sidebar */}
             <aside className="w-64 bg-white border-r border-slate-200 flex flex-col fixed h-full shadow-sm">
                 <div className="p-6 border-b border-slate-100 flex items-center gap-3">
-                    <div className="px-3 h-8 rounded-lg flex items-center justify-center text-white font-bold italic shadow-lg shadow-black/5 bg-[var(--theme-primary)]">Site</div>
+                    <div className="px-3 h-8 rounded-lg flex items-center justify-center text-white font-bold italic shadow-lg shadow-black/5 bg-[var(--theme-primary)]">Built</div>
                     <span className="font-bold text-slate-800 tracking-tight text-lg">Admin</span>
                 </div>
 
@@ -571,7 +642,7 @@ export default function Admin() {
                     <p className="text-xs text-slate-400 px-4 mb-2 truncate font-medium" title={user?.email}>
                         Signed in as: {user?.email}
                     </p>
-                    <Link to={user ? `/u/${user.id}` : "/"} target="_blank" className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-500 hover:text-[var(--theme-primary)] transition-colors mb-2">
+                    <Link to={user ? `/u/${user.id}` : "/"} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-500 hover:text-[var(--theme-primary)] transition-colors mb-2">
                         <Home size={18} /> View Site
                     </Link>
                     <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-500 hover:bg-red-50 rounded-xl transition-all">
@@ -675,8 +746,8 @@ export default function Admin() {
 
                                             // 2. Persist to DB
                                             try {
-                                                const { error } = await supabase.from('site_settings').upsert({
-                                                    user_id: user.id,
+                                                const { error } = await (supabase.from('site_settings' as any) as any).upsert({
+                                                    user_id: user!.id,
                                                     clients_grayscale: checked
                                                 }, { onConflict: 'user_id' });
 
@@ -706,7 +777,6 @@ export default function Admin() {
                                 fields={[
                                     { key: 'url', label: 'Logo URL' }
                                 ]}
-                                siteContent={siteContent} // Pass siteContent to ItemList
                             />
                         </div>
                     )}
@@ -1060,13 +1130,19 @@ export default function Admin() {
     );
 }
 
-function FileUploader({ onUploadComplete, folder = "misc", accept = "*" }) {
+interface FileUploaderProps {
+    onUploadComplete: (url: string) => void;
+    folder?: string;
+    accept?: string;
+}
+
+function FileUploader({ onUploadComplete, folder = "misc", accept = "*" }: FileUploaderProps) {
     const [uploading, setUploading] = useState(false);
 
-    const handleFileChange = async (e) => {
+    const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
         try {
             setUploading(true);
-            const file = e.target.files[0];
+            const file = e.target.files?.[0];
             if (!file) return;
 
             const fileExt = file.name.split('.').pop();
@@ -1084,7 +1160,7 @@ function FileUploader({ onUploadComplete, folder = "misc", accept = "*" }) {
                 .getPublicUrl(filePath);
 
             onUploadComplete(publicUrl);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Upload error:", error);
             alert("Upload failed: " + error.message + "\n\nMake sure you have a public 'uploads' bucket in Supabase Storage with proper policies.");
         } finally {
@@ -1105,7 +1181,21 @@ function FileUploader({ onUploadComplete, folder = "misc", accept = "*" }) {
     );
 }
 
-function ItemList({ items, collName, onReorder, onDelete, editingId, setEditingId, editForm, setEditForm, onSave, onCancel, fields, siteContent }) {
+interface ItemListProps {
+    items: any[];
+    collName: string;
+    onReorder: (newItems: any[]) => void;
+    onDelete: (collName: string, id: string) => void;
+    editingId: string | null;
+    setEditingId: (id: string | null) => void;
+    editForm: any;
+    setEditForm: (form: any) => void;
+    onSave: (collName: string, id: string, payload?: any) => void;
+    onCancel: () => void;
+    fields: { key: string; label: string; type?: string }[];
+}
+
+function ItemList({ items, collName, onReorder, onDelete, editingId, setEditingId, editForm, setEditForm, onSave, onCancel, fields }: ItemListProps) {
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden divide-y divide-slate-50">
             {items.length === 0 && (
@@ -1114,7 +1204,7 @@ function ItemList({ items, collName, onReorder, onDelete, editingId, setEditingI
                 </div>
             )}
             <Reorder.Group axis="y" values={items} onReorder={onReorder}>
-                {items.map((item, index) => (
+                {items.map((item) => (
                     <Reorder.Item key={item.id} value={item} className="bg-white" layout="position">
                         <div className="p-4 flex items-center gap-3 group hover:bg-slate-50/50 transition-colors">
                             <div className="flex flex-col gap-1 border-r border-slate-100 pr-3 cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500">
@@ -1136,7 +1226,7 @@ function ItemList({ items, collName, onReorder, onDelete, editingId, setEditingI
                                             src={item.url}
                                             alt={item.name}
                                             className="w-full h-full object-contain p-2"
-                                            onError={(e) => { e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-slate-400 text-xs">No preview</div>'; }}
+                                            onError={(e) => { e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center text-slate-400 text-xs">No preview</div>'; }}
                                         />
                                     )}
                                     {collName === 'clients' && item.url && (
@@ -1144,7 +1234,7 @@ function ItemList({ items, collName, onReorder, onDelete, editingId, setEditingI
                                             src={item.url}
                                             alt="Client logo"
                                             className="w-full h-full object-contain p-2"
-                                            onError={(e) => { e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-slate-400 text-xs">No preview</div>'; }}
+                                            onError={(e) => { e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center text-slate-400 text-xs">No preview</div>'; }}
                                         />
                                     )}
                                 </div>
@@ -1209,7 +1299,7 @@ function ItemList({ items, collName, onReorder, onDelete, editingId, setEditingI
                                                         // Remove extension
                                                         fileName = fileName.split('.').slice(0, -1).join('.');
                                                         // Replace hyphens and underscores with spaces, then capitalize
-                                                        displayValue = fileName.split(/[-_]/).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+                                                        displayValue = fileName.split(/[-_]/).map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
                                                     }
                                                     return (
                                                         <div key={f.key} className="flex items-center gap-2">
@@ -1256,7 +1346,12 @@ function ItemList({ items, collName, onReorder, onDelete, editingId, setEditingI
     );
 }
 
-function Toggle({ checked, onChange }) {
+interface ToggleProps {
+    checked: boolean;
+    onChange: (checked: boolean) => void;
+}
+
+function Toggle({ checked, onChange }: ToggleProps) {
     return (
         <button
             type="button"
@@ -1273,7 +1368,13 @@ function Toggle({ checked, onChange }) {
 }
 
 
-function Section({ title, icon, children }) {
+interface SectionProps {
+    title: string;
+    icon: ReactNode;
+    children: ReactNode;
+}
+
+function Section({ title, icon, children }: SectionProps) {
     return (
         <div className="space-y-3">
             <h3 className="flex items-center gap-3 text-sm font-medium text-slate-400 uppercase tracking-widest border-b border-slate-50 pb-2">
@@ -1284,7 +1385,14 @@ function Section({ title, icon, children }) {
     );
 }
 
-function Field({ label, value, onChange, textarea }) {
+interface FieldProps {
+    label: string;
+    value: string;
+    onChange: (val: string) => void;
+    textarea?: boolean;
+}
+
+function Field({ label, value, onChange, textarea }: FieldProps) {
     return (
         <div>
             <label className="block text-[11px] font-medium text-slate-400 mb-1 uppercase tracking-tight">{label}</label>
@@ -1297,7 +1405,7 @@ function Field({ label, value, onChange, textarea }) {
     );
 }
 
-function FormInput({ label, value, onChange, placeholder, textarea, containerClass = "" }) {
+function FormInput({ label, value, onChange, placeholder, textarea, containerClass = "" }: FormInputProps) {
     return (
         <div className={containerClass}>
             <label className="block text-[11px] font-medium text-slate-400 mb-1 uppercase tracking-tight">{label}</label>
@@ -1311,7 +1419,14 @@ function FormInput({ label, value, onChange, placeholder, textarea, containerCla
 }
 
 
-function DeleteConfirmModal({ isOpen, onClose, onConfirm, itemName }) {
+interface DeleteConfirmModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    onConfirm: () => void;
+    itemName?: string;
+}
+
+function DeleteConfirmModal({ isOpen, onClose, onConfirm }: DeleteConfirmModalProps) {
     if (!isOpen) return null;
     return (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/20 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
@@ -1327,7 +1442,13 @@ function DeleteConfirmModal({ isOpen, onClose, onConfirm, itemName }) {
     );
 }
 
-function Toast({ message, type, onClose }) {
+interface ToastProps {
+    message: string;
+    type: 'success' | 'error';
+    onClose: () => void;
+}
+
+function Toast({ message, type, onClose }: ToastProps) {
     // Timer is handled by the parent component now
 
     return (

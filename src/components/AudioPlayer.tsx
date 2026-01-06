@@ -2,8 +2,24 @@ import { useState, useRef, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { Play, Pause, SkipBack, SkipForward } from "lucide-react";
 import { motion } from "framer-motion";
-import { demos as staticDemos } from "../content/demos";
+import { demos as staticDemos } from "../content/demos"; // Assume this is still js or needs update
 import { supabase } from "../lib/supabase";
+import { Database } from "../lib/database.types";
+
+type Demo = Database['public']['Tables']['demos']['Row'];
+
+interface AudioPlayerProps {
+    tracks?: Demo[];
+    currentTrackIndex?: number;
+    isPlaying?: boolean;
+    onPlayPause?: () => void;
+    onNext?: () => void;
+    onPrev?: () => void;
+    onSeek?: (time: number) => void;
+    currentTime?: number;
+    duration?: number;
+    onTrackSelect?: (index: number) => void;
+}
 
 export default function AudioPlayer({
     tracks: propTracks,
@@ -16,23 +32,23 @@ export default function AudioPlayer({
     currentTime: propCurrentTime,
     duration: propDuration,
     onTrackSelect
-}) {
+}: AudioPlayerProps) {
     const { uid } = useParams();
-    const [localTracks, setLocalTracks] = useState(staticDemos);
+    const [localTracks, setLocalTracks] = useState<Demo[]>(staticDemos as unknown as Demo[]);
     const [localIndex, setLocalIndex] = useState(0);
     const [localIsPlaying, setLocalIsPlaying] = useState(false);
 
     // Use props if provided (Controlled mode), otherwise local state (Uncontrolled mode)
     const isControlled = propTracks !== undefined;
 
-    const tracks = isControlled ? propTracks : localTracks;
-    const currentTrackIndex = isControlled ? propIndex : localIndex;
+    const tracks = (isControlled ? propTracks : localTracks) || [];
+    const currentTrackIndex = (isControlled ? propIndex : localIndex) || 0;
     const isPlaying = isControlled ? propIsPlaying : localIsPlaying;
-    const currentTime = isControlled ? propCurrentTime : 0; // Local implementation below needs fix if we want full local support without props, but for now we focus on the transition.
+    const currentTime = isControlled ? propCurrentTime : 0;
     const duration = isControlled ? propDuration : 0;
 
     // For local audio handling (legacy support if not controlled)
-    const audioRef = useRef(null);
+    const audioRef = useRef<HTMLAudioElement>(null);
     const [localCurrentTime, setLocalCurrentTime] = useState(0);
     const [localDuration, setLocalDuration] = useState(0);
 
@@ -47,7 +63,7 @@ export default function AudioPlayer({
             if (error) {
                 console.error("Error fetching demos:", error);
             } else if (data && data.length > 0) {
-                setLocalTracks(data); // Supabase returns array of objects, similar structure to what we expect
+                setLocalTracks(data);
             }
         };
 
@@ -55,7 +71,7 @@ export default function AudioPlayer({
     }, [uid, isControlled]);
 
     // Utility to convert various link types (like Google Drive) to direct play links
-    const getPlayableUrl = (url) => {
+    const getPlayableUrl = (url: string) => {
         if (!url) return "";
         // 1. Google Drive Conversion
         const driveMatch = url.match(/\/file\/d\/([^\/]+)/) || url.match(/id=([^\&]+)/);
@@ -69,23 +85,22 @@ export default function AudioPlayer({
         return url;
     };
 
-    // If not controlled, we need these. If controlled, they are ignored or passed in.
-    // const [isPlaying, setIsPlaying] = useState(false); -> handled above
-
     // Legacy local logic
-    const currentTrack = tracks[currentTrackIndex] || {}; // Safety check
+    const currentTrack = tracks[currentTrackIndex] || {};
 
     useEffect(() => {
         if (isControlled) return;
-        if (localIsPlaying) {
-            audioRef.current.play().catch(() => setLocalIsPlaying(false));
-        } else {
-            audioRef.current.pause();
+        if (audioRef.current) {
+            if (localIsPlaying) {
+                audioRef.current.play().catch(() => setLocalIsPlaying(false));
+            } else {
+                audioRef.current.pause();
+            }
         }
     }, [localIsPlaying, currentTrackIndex, isControlled]);
 
     const togglePlay = () => {
-        if (isControlled) onPlayPause();
+        if (isControlled && onPlayPause) onPlayPause();
         else setLocalIsPlaying(!localIsPlaying);
     };
 
@@ -96,8 +111,10 @@ export default function AudioPlayer({
     };
 
     const handleLoadedMetadata = () => {
-        setLocalDuration(audioRef.current.duration);
-        if (localIsPlaying) audioRef.current.play().catch(() => setLocalIsPlaying(false));
+        if (audioRef.current) {
+            setLocalDuration(audioRef.current.duration);
+            if (localIsPlaying) audioRef.current.play().catch(() => setLocalIsPlaying(false));
+        }
     };
 
     const handleEnded = () => {
@@ -115,13 +132,15 @@ export default function AudioPlayer({
         else setLocalIndex((prev) => (prev - 1 + tracks.length) % tracks.length);
     };
 
-    const handleSeek = (e) => {
+    const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
         const time = parseFloat(e.target.value);
         if (isControlled && onSeek) {
             onSeek(time);
         } else {
-            audioRef.current.currentTime = time;
-            setLocalCurrentTime(time);
+            if (audioRef.current) {
+                audioRef.current.currentTime = time;
+                setLocalCurrentTime(time);
+            }
         }
     };
 
@@ -140,22 +159,22 @@ export default function AudioPlayer({
             <div className="flex flex-col gap-4">
                 <div className="text-center">
                     <h3 className="text-lg font-bold bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-primary)] bg-clip-text text-transparent truncate px-2">
-                        {currentTrack.name}
+                        {currentTrack.name || "Unknown Track"}
                     </h3>
                     <p className="text-slate-500 text-xs mt-0.5">Nathan Puls Voice Over</p>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <span className="text-[10px] text-slate-500 w-8 text-right">{formatTime(currentTime)}</span>
+                    <span className="text-[10px] text-slate-500 w-8 text-right">{formatTime(currentTime || effectiveCurrentTime)}</span>
                     <input
                         type="range"
                         min="0"
-                        max={duration || 0}
-                        value={currentTime}
+                        max={(duration || effectiveDuration) || 0}
+                        value={currentTime || effectiveCurrentTime}
                         onChange={handleSeek}
                         className="flex-1 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[var(--theme-primary)]"
                     />
-                    <span className="text-[10px] text-slate-500 w-8">{formatTime(duration)}</span>
+                    <span className="text-[10px] text-slate-500 w-8">{formatTime(duration || effectiveDuration)}</span>
                 </div>
 
                 <div className="flex items-center justify-center gap-4">
@@ -217,9 +236,10 @@ export default function AudioPlayer({
     );
 }
 
-function formatTime(seconds) {
+function formatTime(seconds: number | undefined) {
     if (!seconds) return "0:00";
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
     return `${m}:${s < 10 ? "0" : ""}${s}`;
 }
+

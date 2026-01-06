@@ -1,10 +1,6 @@
 import { supabase } from './supabase';
 
-/**
- * Get the user ID based on the current domain
- * @returns {Promise<string|null>} User ID or null
- */
-export async function getUserIdFromDomain() {
+export async function getUserIdFromDomain(): Promise<string | null> {
     const hostname = window.location.hostname;
 
     // List of your main domains (add your production domain here)
@@ -24,8 +20,8 @@ export async function getUserIdFromDomain() {
 
     // Check if this is a custom domain
     try {
-        const { data, error } = await supabase
-            .from('custom_domains')
+        const { data, error } = await (supabase
+            .from('custom_domains' as any) as any)
             .select('user_id')
             .eq('domain', hostname)
             .eq('verified', true)
@@ -36,18 +32,14 @@ export async function getUserIdFromDomain() {
             return null;
         }
 
-        return data?.user_id || null;
+        return (data as any)?.user_id || null;
     } catch (err) {
         console.error('Error in getUserIdFromDomain:', err);
         return null;
     }
 }
 
-/**
- * Check if the current domain is a custom domain
- * @returns {boolean}
- */
-export function isCustomDomain() {
+export function isCustomDomain(): boolean {
     const hostname = window.location.hostname;
     const mainDomains = [
         'localhost',
@@ -58,24 +50,14 @@ export function isCustomDomain() {
     return !mainDomains.some(domain => hostname.includes(domain));
 }
 
-/**
- * Generate a verification token for domain ownership
- * @returns {string}
- */
-export function generateVerificationToken() {
+export function generateVerificationToken(): string {
     return `builtat-verify-${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
 }
 
-/**
- * Verify domain ownership via DNS TXT record
- * @param {string} domain - Domain to verify
- * @param {string} token - Verification token
- * @returns {Promise<boolean>}
- */
-export async function verifyDomainOwnership(domain, token) {
+export async function verifyDomainOwnership(domain: string, token: string): Promise<boolean> {
     try {
         // Check using Cloudflare DNS over HTTPS (works in browser!)
-        const checkDns = async (provider) => {
+        const checkDns = async (provider: string) => {
             const hostname = `_built-verify.${domain}`;
             const url = `${provider}?name=${hostname}&type=TXT`;
 
@@ -87,7 +69,7 @@ export async function verifyDomainOwnership(domain, token) {
             if (data.Answer) {
                 // Check if any TXT record contains the token
                 // Records are usually quoted like "token-value"
-                return data.Answer.some(record => record.data.includes(token));
+                return data.Answer.some((record: any) => record.data.includes(token));
             }
             return false;
         };
@@ -107,12 +89,7 @@ export async function verifyDomainOwnership(domain, token) {
     }
 }
 
-/**
- * Add a custom domain for the current user
- * @param {string} domain - Domain to add
- * @returns {Promise<{success: boolean, data?: any, error?: any}>}
- */
-export async function addCustomDomain(domain) {
+export async function addCustomDomain(domain: string): Promise<{ success: boolean; data?: any; error?: any }> {
     try {
         // Clean the domain
         const cleanDomain = domain.toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
@@ -132,12 +109,7 @@ export async function addCustomDomain(domain) {
     }
 }
 
-/**
- * Remove a custom domain
- * @param {string} domainId - Domain ID to remove
- * @returns {Promise<{success: boolean, error?: any}>}
- */
-export async function removeCustomDomain(domainId) {
+export async function removeCustomDomain(domainId: string): Promise<{ success: boolean; error?: any }> {
     try {
         const { error } = await supabase
             .from('custom_domains')
@@ -154,11 +126,7 @@ export async function removeCustomDomain(domainId) {
     }
 }
 
-/**
- * Get all custom domains for the current user
- * @returns {Promise<Array>}
- */
-export async function getUserCustomDomains() {
+export async function getUserCustomDomains(): Promise<any[]> {
     try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return [];
@@ -180,3 +148,4 @@ export async function getUserCustomDomains() {
         return [];
     }
 }
+

@@ -20,11 +20,20 @@ Users can connect their own custom domains (e.g., `johndoe.com`) instead of usin
 First, apply the custom domains migration to your Supabase database:
 
 ```bash
-# If using Supabase CLI
-supabase db push
+# 1. Install Supabase CLI (if you haven't already)
+npm install -D supabase
 
-# Or manually run the SQL in supabase/migrations/add_custom_domains.sql
-# in your Supabase dashboard under SQL Editor
+# 2. Login to Supabase
+npx supabase login
+
+# 3. Apply the database migration
+npx supabase db push
+
+# 4. Deploy the Edge Function (handles Cloudflare integration)
+npx supabase functions deploy add-domain
+
+# 5. Set your Cloudflare Secrets (Required for production)
+npx supabase secrets set CLOUDFLARE_API_TOKEN=your_token_here CLOUDFLARE_ZONE_ID=your_zone_id_here
 ```
 
 ### 2. Configure Your Main Domains

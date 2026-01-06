@@ -3,8 +3,10 @@
 This guide will help you set up `sayingthings.com` as your main custom domain instead of using the `/u/user-id` URL structure.
 
 ## Current Situation
-- Your site: `https://sayingthings.com/u/adbdc0ad-87a8-4e1d-b7f5-eb2d17c95f59`
+- Your site: `https://built.at/u/adbdc0ad-87a8-4e1d-b7f5-eb2d17c95f59`
 - Goal: `https://sayingthings.com`
+or `https://timmymorgan.com`
+or any domain
 
 ## Steps to Implement
 
