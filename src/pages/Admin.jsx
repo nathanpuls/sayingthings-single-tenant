@@ -837,7 +837,10 @@ export default function Admin() {
 
                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                             <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                                                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">CNAME Record</div>
+                                                                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex justify-between items-center">
+                                                                    <span>CNAME Record</span>
+                                                                    <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full font-medium normal-case">Proxy Off / DNS Only</span>
+                                                                </div>
                                                                 <div className="space-y-2">
                                                                     <div className="flex items-center justify-between text-sm">
                                                                         <span className="text-slate-500">Name:</span>
