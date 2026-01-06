@@ -837,22 +837,40 @@ export default function Admin() {
 
                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                             <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                                                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">CNAME Record</div>
-                                                                <div className="flex justify-between text-sm">
-                                                                    <span className="text-slate-500">Name: <span className="font-mono text-slate-800">@</span> (or www)</span>
-                                                                    <span className="text-slate-500">Value: <span className="font-mono text-slate-800">sayingthings.com</span></span>
+                                                                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">CNAME Record</div>
+                                                                <div className="space-y-2">
+                                                                    <div className="flex items-center justify-between text-sm">
+                                                                        <span className="text-slate-500">Name:</span>
+                                                                        <div className="flex items-center gap-2 bg-white px-2 py-1 rounded border border-slate-100">
+                                                                            <span className="font-mono text-slate-800">@</span>
+                                                                            <button onClick={() => { navigator.clipboard.writeText("@"); showToast("Copied!", "success"); }} className="text-slate-400 hover:text-[var(--theme-primary)] transition-colors" title="Copy"><Copy size={12} /></button>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex items-center justify-between text-sm">
+                                                                        <span className="text-slate-500">Value:</span>
+                                                                        <div className="flex items-center gap-2 bg-white px-2 py-1 rounded border border-slate-100">
+                                                                            <span className="font-mono text-slate-800">sayingthings.com</span>
+                                                                            <button onClick={() => { navigator.clipboard.writeText("sayingthings.com"); showToast("Copied!", "success"); }} className="text-slate-400 hover:text-[var(--theme-primary)] transition-colors" title="Copy"><Copy size={12} /></button>
+                                                                        </div>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                             <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                                                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">TXT Record</div>
-                                                                <div className="space-y-1">
-                                                                    <div className="flex gap-2 text-sm">
-                                                                        <span className="text-slate-500 w-12">Name:</span>
-                                                                        <span className="font-mono text-slate-800 select-all">_sayingthings-verify</span>
+                                                                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">TXT Record</div>
+                                                                <div className="space-y-2">
+                                                                    <div className="flex items-center justify-between text-sm">
+                                                                        <span className="text-slate-500">Name:</span>
+                                                                        <div className="flex items-center gap-2 bg-white px-2 py-1 rounded border border-slate-100">
+                                                                            <span className="font-mono text-slate-800">_sayingthings-verify</span>
+                                                                            <button onClick={() => { navigator.clipboard.writeText("_sayingthings-verify"); showToast("Copied!", "success"); }} className="text-slate-400 hover:text-[var(--theme-primary)] transition-colors" title="Copy"><Copy size={12} /></button>
+                                                                        </div>
                                                                     </div>
-                                                                    <div className="flex gap-2 text-sm">
-                                                                        <span className="text-slate-500 w-12">Value:</span>
-                                                                        <span className="font-mono text-slate-800 select-all break-all">{domain.verification_token}</span>
+                                                                    <div className="flex flex-col gap-1 text-sm">
+                                                                        <span className="text-slate-500">Value:</span>
+                                                                        <div className="flex items-start justify-between gap-2 bg-white px-2 py-1 rounded border border-slate-100 w-full">
+                                                                            <span className="font-mono text-slate-800 break-all text-xs">{domain.verification_token}</span>
+                                                                            <button onClick={() => { navigator.clipboard.writeText(domain.verification_token); showToast("Copied!", "success"); }} className="text-slate-400 hover:text-[var(--theme-primary)] transition-colors shrink-0 mt-0.5" title="Copy"><Copy size={12} /></button>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             </div>
