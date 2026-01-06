@@ -12,6 +12,8 @@ export async function getUserIdFromDomain() {
         'localhost',
         'sayingthings.com',
         'www.sayingthings.com',
+        'built.at',
+        'www.built.at',
         // Add your Vercel/Netlify domains here
     ];
 
@@ -27,7 +29,7 @@ export async function getUserIdFromDomain() {
             .select('user_id')
             .eq('domain', hostname)
             .eq('verified', true)
-            .single();
+            .maybeSingle();
 
         if (error) {
             console.error('Error fetching custom domain:', error);
@@ -112,33 +114,20 @@ export async function verifyDomainOwnership(domain, token) {
  */
 export async function addCustomDomain(domain) {
     try {
-        // Get current user
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("User not authenticated");
-
         // Clean the domain
         const cleanDomain = domain.toLowerCase().trim().replace(/^https?:\/\//, '').replace(/\/$/, '');
 
-        // Generate verification token
-        const verificationToken = generateVerificationToken();
+        // Call the Edge Function to handle Cloudflare provisioning + DB insert
+        const { data, error } = await supabase.functions.invoke('add-domain', {
+            body: { domain: cleanDomain }
+        });
 
-        const { data, error } = await supabase
-            .from('custom_domains')
-            .insert([{
-                user_id: user.id,
-                domain: cleanDomain,
-                verification_token: verificationToken,
-                verified: false
-            }])
-            .select()
-            .single();
-
-        if (error) {
-            return { success: false, error };
-        }
+        if (error) throw error;
+        if (data && data.error) throw new Error(data.error);
 
         return { success: true, data };
     } catch (err) {
+        console.error("Add domain error:", err);
         return { success: false, error: err };
     }
 }
