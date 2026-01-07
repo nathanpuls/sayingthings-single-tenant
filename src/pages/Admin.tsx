@@ -557,18 +557,34 @@ export default function Admin() {
 
 
 
-    const handleCheckVerification = async (domain: string, token: string, customName?: string) => {
+    const handleCheckVerification = async (domain: any) => {
         setUploading(true);
         try {
-            const verified = await verifyDomainOwnership(domain, token, customName);
+            // 1. Check Ownership Record
+            let verified = await verifyDomainOwnership(
+                domain.domain,
+                domain.ownership_value || domain.verification_token,
+                domain.ownership_name
+            );
+
+            // 2. Backup: Check SSL Record if ownership failed
+            if (!verified && domain.ssl_name && domain.ssl_value) {
+                verified = await verifyDomainOwnership(
+                    domain.domain,
+                    domain.ssl_value,
+                    domain.ssl_name
+                );
+            }
+
             if (verified) {
-                await (supabase.from('custom_domains' as any) as any).update({ verified: true }).eq('domain', domain);
+                await (supabase.from('custom_domains' as any) as any).update({ verified: true }).eq('id', domain.id);
                 showToast("Domain verified successfully!", "success");
                 setCustomDomains(await getUserCustomDomains());
             } else {
                 showToast("Verification failed. DNS records not found yet.", "error");
             }
         } catch (error) {
+            console.error("Verification error:", error);
             showToast("Verification check failed", "error");
         } finally {
             setUploading(false);
@@ -883,7 +899,7 @@ export default function Admin() {
                                                     <div className="flex items-center gap-2">
                                                         {!domain.verified && (
                                                             <button
-                                                                onClick={() => handleCheckVerification(domain.domain, domain.ownership_value || domain.verification_token, domain.ownership_name)}
+                                                                onClick={() => handleCheckVerification(domain)}
                                                                 className="text-xs font-bold text-[var(--theme-primary)] hover:underline px-3 py-2"
                                                             >
                                                                 Check Verification
