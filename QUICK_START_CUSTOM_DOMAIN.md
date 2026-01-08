@@ -174,3 +174,16 @@ export async function getUserIdFromDomain() {
 
 - **Q: How do I add a domain management UI?**
   - A: See the next section for admin panel integration
+
+## Appendix: Cloudflare API Token Setup
+
+If you are using the automated `add-domain` edge function, you must create a Cloudflare API Token with the following permissions:
+
+1. **Profile** > **API Tokens** > **Create Token** > **Create Custom Token**
+2. **Token Name**: `Supabase Custom Domain Proxy`
+3. **Permissions**:
+   - `Zone` | `Custom Hostnames` | `Edit`
+   - `Zone` | `SSL and Certificates` | `Edit`
+   - `Zone` | `Zone` | `Read`
+4. **Zone Resources**: Include your domain.
+5. Set the secret: `npx supabase secrets set CLOUDFLARE_API_TOKEN=...`

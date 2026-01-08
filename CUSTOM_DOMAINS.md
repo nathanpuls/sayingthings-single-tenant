@@ -36,6 +36,23 @@ npx supabase functions deploy add-domain
 npx supabase secrets set CLOUDFLARE_API_TOKEN=your_token_here CLOUDFLARE_ZONE_ID=your_zone_id_here
 ```
 
+### 1a. Creating the Cloudflare API Token
+To ensure the Edge Function has the necessary permissions to manage custom domains, follow these steps:
+
+1. Click the **User Icon** in the very top right of Cloudflare and select **My Profile**.
+2. On the left sidebar, click **API Tokens**.
+3. Click the blue **Create Token** button.
+4. Select **"Create Custom Token"** at the bottom (click "Get Started").
+5. **Token Name**: `Supabase Custom Domain Proxy`
+6. **Permissions**:
+   - `Zone` | `Custom Hostnames` | `Edit`
+   - `Zone` | `SSL and Certificates` | `Edit`
+   - `Zone` | `Zone` | `Read`
+7. **Zone Resources**:
+   - `Include` | `Specific zone` | `yourdomain.com` (or "All zones")
+8. Click **Continue to summary** and then **Create Token**.
+9. Copy the token and use it in the `npx supabase secrets set` command above.
+
 ### 2. Configure Your Main Domains
 
 Update `/src/lib/domains.js` and add your production domains to the `mainDomains` array:

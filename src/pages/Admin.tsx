@@ -920,47 +920,53 @@ export default function Admin() {
                                                             To verify ownership, add these records to your DNS provider (e.g. <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" className="text-[var(--theme-primary)] hover:underline font-medium">Cloudflare</a>, GoDaddy).
                                                         </div>
 
-                                                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                                             {/* CNAME RECORD */}
-                                                            <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                                                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex justify-between items-center">
-                                                                    <span>CNAME Record</span>
-                                                                    <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full font-medium normal-case">DNS Only</span>
-                                                                </div>
-                                                                <div className="space-y-2">
-                                                                    <div className="flex items-center justify-between text-sm">
-                                                                        <span className="text-slate-500">Name:</span>
-                                                                        <div className="flex items-center gap-2 bg-white px-2 py-1 rounded border border-slate-100">
-                                                                            <span className="font-mono text-slate-800">@</span>
-                                                                            <button onClick={() => { navigator.clipboard.writeText("@"); showToast("Copied!", "success"); }} className="text-slate-400 hover:text-[var(--theme-primary)] transition-colors" title="Copy"><Copy size={12} /></button>
-                                                                        </div>
+                                                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-between">
+                                                                <div>
+                                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex justify-between items-center">
+                                                                        <span>CNAME Record</span>
+                                                                        <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full font-medium normal-case">DNS Only</span>
                                                                     </div>
-                                                                    <div className="flex items-center justify-between text-sm">
-                                                                        <span className="text-slate-500">Value:</span>
-                                                                        <div className="flex items-center gap-2 bg-white px-2 py-1 rounded border border-slate-100">
-                                                                            <span className="font-mono text-slate-800">built.at</span>
-                                                                            <button onClick={() => { navigator.clipboard.writeText("built.at"); showToast("Copied!", "success"); }} className="text-slate-400 hover:text-[var(--theme-primary)] transition-colors" title="Copy"><Copy size={12} /></button>
+                                                                    <div className="space-y-3">
+                                                                        <div className="space-y-1">
+                                                                            <span className="text-[10px] text-slate-400 uppercase font-bold">Host</span>
+                                                                            <div className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-slate-100 group">
+                                                                                <span className="font-mono text-xs text-slate-800">@</span>
+                                                                                <button onClick={() => { navigator.clipboard.writeText("@"); showToast("Copied Host", "success"); }} className="text-slate-300 hover:text-[var(--theme-primary)] transition-colors opacity-0 group-hover:opacity-100"><Copy size={14} /></button>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="space-y-1">
+                                                                            <span className="text-[10px] text-slate-400 uppercase font-bold">Target</span>
+                                                                            <div className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-slate-100 group">
+                                                                                <span className="font-mono text-xs text-slate-800">built.at</span>
+                                                                                <button onClick={() => { navigator.clipboard.writeText("built.at"); showToast("Copied Target", "success"); }} className="text-slate-300 hover:text-[var(--theme-primary)] transition-colors opacity-0 group-hover:opacity-100"><Copy size={14} /></button>
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                 </div>
                                                             </div>
 
                                                             {/* OWNERSHIP TXT RECORD */}
-                                                            <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                                                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Ownership TXT</div>
-                                                                <div className="space-y-2">
-                                                                    <div className="flex items-center justify-between text-sm">
-                                                                        <span className="text-slate-500 shrink-0">Name:</span>
-                                                                        <div className="flex items-center gap-2 bg-white px-2 py-1 rounded border border-slate-100 overflow-hidden">
-                                                                            <span className="font-mono text-slate-800 text-xs truncate">{domain.ownership_name || `_cf-custom-hostname`}</span>
-                                                                            <button onClick={() => { navigator.clipboard.writeText(domain.ownership_name || `_cf-custom-hostname`); showToast("Copied!", "success"); }} className="text-slate-400 hover:text-[var(--theme-primary)] transition-colors" title="Copy"><Copy size={12} /></button>
+                                                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-between">
+                                                                <div>
+                                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Ownership TXT</div>
+                                                                    <div className="space-y-3">
+                                                                        <div className="space-y-1">
+                                                                            <span className="text-[10px] text-slate-400 uppercase font-bold">Name</span>
+                                                                            <div className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-slate-100 group">
+                                                                                <span className="font-mono text-[11px] text-slate-800 truncate pr-2">{domain.ownership_name || `_cf-custom-hostname`}</span>
+                                                                                <button onClick={() => { navigator.clipboard.writeText(domain.ownership_name || `_cf-custom-hostname`); showToast("Copied Name", "success"); }} className="text-slate-300 hover:text-[var(--theme-primary)] transition-colors opacity-0 group-hover:opacity-100 shrink-0"><Copy size={14} /></button>
+                                                                            </div>
                                                                         </div>
-                                                                    </div>
-                                                                    <div className="flex flex-col gap-1 text-sm">
-                                                                        <span className="text-slate-500">Value:</span>
-                                                                        <div className="flex items-start justify-between gap-2 bg-white px-2 py-1 rounded border border-slate-100 w-full overflow-hidden">
-                                                                            <span className="font-mono text-slate-800 break-all text-[10px] sm:text-xs">{(domain.ownership_value || domain.verification_token)?.substring(0, 30)}...</span>
-                                                                            <button onClick={() => { navigator.clipboard.writeText(domain.ownership_value || domain.verification_token); showToast("Copied!", "success"); }} className="text-slate-400 hover:text-[var(--theme-primary)] transition-colors shrink-0 mt-0.5" title="Copy"><Copy size={12} /></button>
+                                                                        <div className="space-y-1">
+                                                                            <span className="text-[10px] text-slate-400 uppercase font-bold">Value</span>
+                                                                            <div className="flex items-start justify-between bg-white px-3 py-2 rounded-lg border border-slate-100 group min-h-[60px]">
+                                                                                <span className="font-mono text-[10px] text-slate-600 break-all leading-relaxed">
+                                                                                    {domain.ownership_value || domain.verification_token}
+                                                                                </span>
+                                                                                <button onClick={() => { navigator.clipboard.writeText(domain.ownership_value || domain.verification_token); showToast("Copied Value", "success"); }} className="text-slate-300 hover:text-[var(--theme-primary)] transition-colors opacity-0 group-hover:opacity-100 shrink-0 mt-0.5"><Copy size={14} /></button>
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                 </div>
@@ -968,21 +974,25 @@ export default function Admin() {
 
                                                             {/* SSL TXT RECORD */}
                                                             {domain.ssl_name && (
-                                                                <div className="p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                                                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">SSL Validation TXT</div>
-                                                                    <div className="space-y-2">
-                                                                        <div className="flex items-center justify-between text-sm">
-                                                                            <span className="text-slate-500 shrink-0">Name:</span>
-                                                                            <div className="flex items-center gap-2 bg-white px-2 py-1 rounded border border-slate-100 overflow-hidden">
-                                                                                <span className="font-mono text-slate-800 text-xs truncate">{domain.ssl_name}</span>
-                                                                                <button onClick={() => { navigator.clipboard.writeText(domain.ssl_name); showToast("Copied!", "success"); }} className="text-slate-400 hover:text-[var(--theme-primary)] transition-colors" title="Copy"><Copy size={12} /></button>
+                                                                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-between">
+                                                                    <div>
+                                                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">SSL Validation TXT</div>
+                                                                        <div className="space-y-3">
+                                                                            <div className="space-y-1">
+                                                                                <span className="text-[10px] text-slate-400 uppercase font-bold">Name</span>
+                                                                                <div className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-slate-100 group">
+                                                                                    <span className="font-mono text-[11px] text-slate-800 truncate pr-2">{domain.ssl_name}</span>
+                                                                                    <button onClick={() => { navigator.clipboard.writeText(domain.ssl_name); showToast("Copied Name", "success"); }} className="text-slate-300 hover:text-[var(--theme-primary)] transition-colors opacity-0 group-hover:opacity-100 shrink-0"><Copy size={14} /></button>
+                                                                                </div>
                                                                             </div>
-                                                                        </div>
-                                                                        <div className="flex flex-col gap-1 text-sm">
-                                                                            <span className="text-slate-500">Value:</span>
-                                                                            <div className="flex items-start justify-between gap-2 bg-white px-2 py-1 rounded border border-slate-100 w-full overflow-hidden">
-                                                                                <span className="font-mono text-slate-800 break-all text-[10px] sm:text-xs">{domain.ssl_value?.substring(0, 30)}...</span>
-                                                                                <button onClick={() => { navigator.clipboard.writeText(domain.ssl_value); showToast("Copied!", "success"); }} className="text-slate-400 hover:text-[var(--theme-primary)] transition-colors shrink-0 mt-0.5" title="Copy"><Copy size={12} /></button>
+                                                                            <div className="space-y-1">
+                                                                                <span className="text-[10px] text-slate-400 uppercase font-bold">Value</span>
+                                                                                <div className="flex items-start justify-between bg-white px-3 py-2 rounded-lg border border-slate-100 group min-h-[60px]">
+                                                                                    <span className="font-mono text-[10px] text-slate-600 break-all leading-relaxed">
+                                                                                        {domain.ssl_value}
+                                                                                    </span>
+                                                                                    <button onClick={() => { navigator.clipboard.writeText(domain.ssl_value); showToast("Copied Value", "success"); }} className="text-slate-300 hover:text-[var(--theme-primary)] transition-colors opacity-0 group-hover:opacity-100 shrink-0 mt-0.5"><Copy size={14} /></button>
+                                                                                </div>
                                                                             </div>
                                                                         </div>
                                                                     </div>

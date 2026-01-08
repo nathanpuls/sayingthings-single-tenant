@@ -41,7 +41,7 @@ export function isCustomDomain(): boolean {
     const mainDomains = [
         'localhost',
         'built.at',
-        'app.sayingthings.com',
+        'www.built.at',
     ];
 
     return !mainDomains.some(domain => hostname.includes(domain));

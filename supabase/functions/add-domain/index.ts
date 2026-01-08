@@ -46,7 +46,8 @@ serve(async (req: Request) => {
             cfToken === 'your_token_here' || cfZoneId === 'your_zone_id_here';
 
         if (isMisconfigured) {
-            const mockToken = `built-verify-${Math.random().toString(36).substring(7)}`;
+            // Predictable mock token based on domain so it doesn't change every re-add
+            const mockToken = `built-verify-${domain.split('.').join('-')}`;
             const { error: dbError } = await supabaseClient
                 .from('custom_domains')
                 .insert({
@@ -54,7 +55,7 @@ serve(async (req: Request) => {
                     domain: domain,
                     verification_token: mockToken,
                     ownership_type: 'txt',
-                    ownership_name: `_built-verify.${domain}`,
+                    ownership_name: `_cf-custom-hostname.${domain}`,
                     ownership_value: mockToken,
                     verified: false
                 })
