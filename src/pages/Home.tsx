@@ -140,6 +140,10 @@ export default function Home() {
     if (audioRef.current) {
       audioRef.current.currentTime = time;
       setAudioCurrentTime(time);
+      if (!isAudioPlaying) {
+        setIsAudioPlaying(true);
+        audioRef.current.play().catch(console.error);
+      }
     }
   };
 
@@ -557,7 +561,7 @@ export default function Home() {
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900">
       <audio
         ref={audioRef}
-        src={currentAudioTrack ? getPlayableUrl(currentAudioTrack.url) : ""}
+        src={currentAudioTrack ? getPlayableUrl(currentAudioTrack.url) : undefined}
         onTimeUpdate={handleAudioTimeUpdate}
         onLoadedMetadata={handleAudioLoadedMetadata}
         onEnded={handleAudioEnded}
@@ -1091,7 +1095,7 @@ export default function Home() {
       </AnimatePresence>
 
       <footer className="pt-2 pb-32 text-center text-slate-400 text-sm bg-slate-50 relative flex justify-center items-center">
-        <p>Designed by <a href="https://nathanpuls.com" className="hover:text-[var(--theme-primary)] text-slate-500 transition-colors">Nathan Puls</a></p>
+        <p><a href="https://built.at" className="hover:text-[var(--theme-primary)] text-slate-500 transition-colors font-semibold">Built.at</a></p>
       </footer>
     </div>
   );
