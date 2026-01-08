@@ -17,12 +17,26 @@ export async function getUserIdFromDomain(): Promise<string | null> {
 
     // Check if this is a custom domain
     try {
+        const domainsToCheck = [hostname];
+        if (hostname.startsWith('www.')) {
+            domainsToCheck.push(hostname.replace('www.', ''));
+        } else {
+            domainsToCheck.push(`www.${hostname}`);
+        }
+
         const { data, error } = await (supabase
             .from('custom_domains' as any) as any)
-            .select('user_id')
-            .eq('domain', hostname)
+            .select('user_id, domain, verified')
+            .in('domain', domainsToCheck)
             .eq('verified', true)
             .maybeSingle();
+
+        console.log("🔍 DOMAIN DEBUG:", {
+            hostname,
+            checking: domainsToCheck,
+            found: data,
+            error
+        });
 
         if (error) {
             console.error('Error fetching custom domain:', error);
@@ -103,30 +117,40 @@ export async function addCustomDomain(domain: string): Promise<{ success: boolea
             body: { domain: cleanDomain }
         });
 
-        if (error) {
-            if ((error as any).context) {
-                const res = (error as any).context;
-                try {
-                    const text = await res.text();
-                    try {
-                        const json = JSON.parse(text);
-                        if (json.error) throw new Error(json.error);
-                        if (json.message) throw new Error(json.message);
-                    } catch (e2) {
-                        throw new Error(text || error.message);
-                    }
-                } catch (e) {
-                    throw error;
-                }
-            }
-            throw error;
+        console.log("Edge Function Response Data:", data);
+
+        if (data && data.success === false) {
+            return { success: false, error: data.error || "Failed to add domain" };
         }
+
         if (data && data.error) throw new Error(data.error);
 
         return { success: true, data };
     } catch (err: any) {
-        console.error("Add domain error:", err);
-        const message = err.message || (typeof err === 'string' ? err : "An unknown error occurred");
+        console.error("Add domain error (FULL OBJECT):", err);
+
+        let message = err.message || (typeof err === 'string' ? err : "An unknown error occurred");
+
+        if (err.context && typeof err.context.clone === 'function') {
+            try {
+                // Clone the response first so we don't lock the stream
+                const res = err.context.clone();
+                const textBody = await res.text();
+                // Log the raw text so we can see it in the console no matter what format it is
+                console.error("Add domain error (RESPONSE TEXT):", textBody);
+
+                try {
+                    const jsonBody = JSON.parse(textBody);
+                    if (jsonBody.error) message = jsonBody.error;
+                    else if (jsonBody.message) message = jsonBody.message;
+                } catch (parseErr) {
+                    // content is not JSON, that's fine, we logged the text
+                }
+            } catch (readErr) {
+                console.error("Could not read error body:", readErr);
+            }
+        }
+
         return { success: false, error: message };
     }
 }

@@ -61,6 +61,7 @@ export interface Database {
                     url: string
                     order: number
                     created_at: string
+                    segments: Json | null
                 }
                 Insert: {
                     id?: string
@@ -69,6 +70,7 @@ export interface Database {
                     url: string
                     order: number
                     created_at?: string
+                    segments?: Json | null
                 }
                 Update: {
                     id?: string
@@ -77,6 +79,7 @@ export interface Database {
                     url?: string
                     order?: number
                     created_at?: string
+                    segments?: Json | null
                 }
             }
             videos: {

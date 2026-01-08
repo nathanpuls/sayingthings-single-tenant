@@ -164,6 +164,39 @@ export default function AudioPlayer({
                         {currentTrack.name || (tracks.length === 0 ? "Loading demos..." : "Unknown Track")}
                     </h3>
                     <p className="text-slate-500 text-xs mt-0.5">{ownerName || "Voice Over Artist"}</p>
+
+                    {/* Clips Display */}
+                    {currentTrack.segments && (currentTrack.segments as any[]).length > 0 && (
+                        <div className="flex flex-wrap justify-center gap-1.5 mt-3 px-2">
+                            {(currentTrack.segments as any[]).map((clip, idx) => {
+                                const isActive = (currentTime || effectiveCurrentTime) >= clip.startTime &&
+                                    (idx === (currentTrack.segments as any[]).length - 1 ||
+                                        (currentTime || effectiveCurrentTime) < (currentTrack.segments as any[])[idx + 1].startTime);
+                                return (
+                                    <button
+                                        key={idx}
+                                        onClick={() => {
+                                            if (isControlled && onSeek) onSeek(clip.startTime);
+                                            else if (audioRef.current) {
+                                                audioRef.current.currentTime = clip.startTime;
+                                                setLocalCurrentTime(clip.startTime);
+                                                if (!localIsPlaying) {
+                                                    setLocalIsPlaying(true);
+                                                    audioRef.current.play();
+                                                }
+                                            }
+                                        }}
+                                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border ${isActive
+                                            ? "bg-[var(--theme-primary)] text-white border-[var(--theme-primary)] shadow-sm"
+                                            : "bg-slate-50 text-slate-500 border-slate-200 hover:border-[var(--theme-primary)] hover:text-[var(--theme-primary)]"
+                                            }`}
+                                    >
+                                        {clip.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex items-center gap-3">

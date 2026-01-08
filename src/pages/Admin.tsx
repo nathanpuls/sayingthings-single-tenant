@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef, ReactNode, ChangeEvent } from "react";
+import { useState, useEffect, useRef, useCallback, ReactNode, ChangeEvent } from "react";
 import { supabase } from "../lib/supabase";
 import { Link } from "react-router-dom";
 import {
     Trash2, Edit2, Save, X, LogOut, LogIn, UploadCloud,
-    Home, Music, Video, Mic, Users,
-    MessageSquare, Contact, Info, Settings, Share2, GripVertical, Mail, Globe, CheckCircle, AlertCircle, Copy, Eye, EyeOff, RefreshCw
+    Home, Music, Video, Mic, Users, Scissors, Play, Pause, FastForward, Rewind,
+    MessageSquare, Contact, Info, Settings, Share2, GripVertical, Mail, Globe, CheckCircle, AlertCircle, Copy, Eye, EyeOff, RefreshCw, Check
 } from "lucide-react";
 import { motion, Reorder, AnimatePresence } from "framer-motion";
 import { getUserCustomDomains, addCustomDomain, verifyDomainOwnership } from "../lib/domains";
@@ -58,6 +58,19 @@ interface FormInputProps {
     type?: string;
     containerClass?: string;
 }
+
+// Global utility for audio URLs
+const getPlayableUrl = (url: string) => {
+    if (!url) return "";
+    const driveMatch = url.match(/\/file\/d\/([^\/]+)/) || url.match(/id=([^\&]+)/);
+    if (driveMatch && (url.includes("drive.google.com") || url.includes("docs.google.com"))) {
+        return `https://docs.google.com/uc?id=${driveMatch[1]}`;
+    }
+    if (url.includes("dropbox.com") && url.includes("dl=0")) {
+        return url.replace("dl=0", "raw=1");
+    }
+    return url;
+};
 
 // Move FormInput/FileUploader/Toggle/SectionReorder/ItemList definitions later or type them inline if they are in this file.
 // Assuming they are defined at bottom of file. Need to update their signatures.
@@ -127,6 +140,8 @@ export default function Admin() {
     const [newDomain, setNewDomain] = useState("");
     const [fetchingTitle, setFetchingTitle] = useState(false);
     const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; collName: string | null; id: string | null }>({ isOpen: false, collName: null, id: null });
+    const [clipModal, setClipModal] = useState<{ isOpen: boolean; demo: Demo | null }>({ isOpen: false, demo: null });
+    const waveformCache = useRef<Map<string, AudioBuffer>>(new Map());
 
     // Fetch YouTube video title
     const fetchYouTubeTitle = async (videoIdOrUrl: string) => {
@@ -629,43 +644,44 @@ export default function Admin() {
     return (
         <div className="min-h-screen bg-slate-50 flex" style={{ '--theme-primary': siteContent.themeColor || '#6366f1' } as any}>
             {/* Sidebar */}
-            <aside className="w-64 bg-white border-r border-slate-200 flex flex-col fixed h-full shadow-sm">
-                <div className="p-6 border-b border-slate-100 flex items-center gap-3">
-                    <div className="px-3 h-8 rounded-lg flex items-center justify-center text-white font-bold italic shadow-lg shadow-black/5 bg-[var(--theme-primary)]">Built</div>
-                    <span className="font-bold text-slate-800 tracking-tight text-lg">Admin</span>
+            <aside className="w-20 md:w-64 bg-white border-r border-slate-200 flex flex-col fixed h-full shadow-sm z-[50]">
+                <div className="p-4 md:p-6 border-b border-slate-100 flex items-center justify-center md:justify-start gap-3">
+                    <div className="px-3 h-8 rounded-lg flex items-center justify-center text-white font-bold italic shadow-lg shadow-black/5 bg-[var(--theme-primary)]">B</div>
+                    <span className="font-bold text-slate-800 tracking-tight text-lg hidden md:block">Admin</span>
                 </div>
 
-                <nav className="flex-1 p-4 space-y-1">
+                <nav className="flex-1 p-2 md:p-4 space-y-1">
                     {tabs.map(tab => (
                         <button
                             key={tab.id}
                             onClick={() => handleTabClick(tab.id)}
-                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeTab === tab.id
+                            className={`w-full flex items-center justify-center md:justify-start gap-3 px-3 py-3 md:px-4 md:py-3 rounded-xl text-sm font-semibold transition-all ${activeTab === tab.id
                                 ? "text-white shadow-md shadow-black/10 bg-[var(--theme-primary)]"
                                 : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
                                 }`}
+                            title={tab.name}
                         >
-                            {tab.icon}
-                            {tab.name}
+                            <span className="flex-shrink-0">{tab.icon}</span>
+                            <span className="hidden md:block truncate">{tab.name}</span>
                         </button>
                     ))}
                 </nav>
 
-                <div className="p-4 border-t border-slate-100">
-                    <p className="text-xs text-slate-400 px-4 mb-2 truncate font-medium" title={user?.email}>
+                <div className="p-2 md:p-4 border-t border-slate-100">
+                    <p className="text-[10px] text-slate-400 px-4 mb-2 truncate font-medium hidden md:block" title={user?.email}>
                         Signed in as: {user?.email}
                     </p>
-                    <Link to={user ? `/u/${user.id}` : "/"} className="flex items-center gap-3 px-4 py-3 text-sm font-medium text-slate-500 hover:text-[var(--theme-primary)] transition-colors mb-2">
-                        <Home size={18} /> View Site
+                    <Link to={user ? `/u/${user.id}` : "/"} className="flex items-center justify-center md:justify-start gap-3 px-3 py-3 md:px-4 md:py-3 text-sm font-medium text-slate-500 hover:text-[var(--theme-primary)] transition-colors mb-2" title="View Site">
+                        <Home size={18} /> <span className="hidden md:block">View Site</span>
                     </Link>
-                    <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium text-red-500 hover:bg-red-50 rounded-xl transition-all">
-                        <LogOut size={18} /> Sign Out
+                    <button onClick={logout} className="w-full flex items-center justify-center md:justify-start gap-3 px-3 py-3 md:px-4 md:py-3 text-sm font-medium text-red-500 hover:bg-red-50 rounded-xl transition-all" title="Sign Out">
+                        <LogOut size={18} /> <span className="hidden md:block">Sign Out</span>
                     </button>
                 </div>
             </aside>
 
             {/* Main Content */}
-            <main className="flex-1 ml-64 p-8 min-h-screen overflow-y-auto">
+            <main className="flex-1 ml-20 md:ml-64 p-4 md:p-8 min-h-screen overflow-y-auto w-full overflow-x-hidden">
                 <div className="max-w-4xl mx-auto">
                     <header className="mb-3 flex justify-between items-end">
                         <div>
@@ -684,7 +700,17 @@ export default function Admin() {
                                 </div>
                                 <button type="submit" disabled={uploading || !newDemo.name || !newDemo.url} className="text-white py-3 px-6 rounded-xl font-semibold transition-all disabled:opacity-50 bg-[var(--theme-primary)] hover:opacity-90 shadow-lg shadow-[var(--theme-primary)]/30">Add Demo</button>
                             </form>
-                            <ItemList items={demos} collName="demos" onReorder={(newItems) => handleReorder("demos", newItems)} onDelete={deleteItem} editingId={editingId} setEditingId={setEditingId} editForm={editForm} setEditForm={setEditForm} onSave={updateItem} onCancel={() => setEditingId(null)} fields={[{ key: 'name', label: 'Name' }, { key: 'url', label: 'Audio URL' }]} />
+                            <ItemList items={demos} collName="demos" onReorder={(newItems) => handleReorder("demos", newItems)} onDelete={deleteItem} editingId={editingId} setEditingId={setEditingId} editForm={editForm} setEditForm={setEditForm} onSave={updateItem} onCancel={() => setEditingId(null)} fields={[{ key: 'name', label: 'Name' }, { key: 'url', label: 'Audio URL' }]}
+                                extraActions={(item) => (
+                                    <button
+                                        onClick={() => setClipModal({ isOpen: true, demo: item })}
+                                        className="p-2 text-slate-300 hover:text-[var(--theme-primary)] hover:bg-[var(--theme-primary)]/10 rounded-xl transition-all opacity-0 group-hover:opacity-100"
+                                        title="Manage Clips"
+                                    >
+                                        <Scissors size={18} />
+                                    </button>
+                                )}
+                            />
                         </div>
                     )}
 
@@ -903,7 +929,11 @@ export default function Admin() {
                                                                     setUploading(true);
                                                                     const result = await addCustomDomain(domain.domain);
                                                                     if (result.success) {
-                                                                        showToast("Domain status refreshed", "success");
+                                                                        if (result.data?.warning) {
+                                                                            showToast(`Saved, but: ${result.data.warning}`, "error");
+                                                                        } else {
+                                                                            showToast("Domain status refreshed", "success");
+                                                                        }
                                                                         fetchData();
                                                                     } else {
                                                                         const errMsg = result.error instanceof Error ? result.error.message : (typeof result.error === 'string' ? result.error : "Failed to refresh");
@@ -940,7 +970,17 @@ export default function Admin() {
                                                 {!domain.verified && (
                                                     <div className="p-4 bg-white space-y-4">
                                                         <div className="text-sm text-slate-600">
-                                                            To verify ownership, add these records to your DNS provider (e.g. <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" className="text-[var(--theme-primary)] hover:underline font-medium">Cloudflare</a>, GoDaddy).
+                                                            {(domain.ownership_value || domain.verification_token) ? (
+                                                                <>To verify ownership, add these records to your DNS provider (e.g. <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer" className="text-[var(--theme-primary)] hover:underline font-medium">Cloudflare</a>, GoDaddy).</>
+                                                            ) : (
+                                                                <span className="text-amber-600 flex items-center gap-2">
+                                                                    <AlertCircle size={16} />
+                                                                    <span>
+                                                                        <b>Manual Setup Required:</b> We couldn't generate automatic verification tokens.
+                                                                        Please add the CNAME record below. If it doesn't verify within 24 hours (or if your site doesn't load), please contact support.
+                                                                    </span>
+                                                                </span>
+                                                            )}
                                                         </div>
 
                                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -971,35 +1011,42 @@ export default function Admin() {
                                                             </div>
 
                                                             {/* OWNERSHIP TXT RECORD */}
-                                                            <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-between">
-                                                                <div>
-                                                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Ownership TXT</div>
-                                                                    <div className="space-y-3">
-                                                                        <div className="space-y-1">
-                                                                            <span className="text-[10px] text-slate-400 uppercase font-bold">Name</span>
-                                                                            <div className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-slate-100 group">
-                                                                                <span className="font-mono text-[11px] text-slate-800 truncate pr-2">{domain.ownership_name || `_cf-custom-hostname`}</span>
-                                                                                <button onClick={() => { navigator.clipboard.writeText(domain.ownership_name || `_cf-custom-hostname`); showToast("Copied Name", "success"); }} className="text-slate-300 hover:text-[var(--theme-primary)] transition-colors opacity-0 group-hover:opacity-100 shrink-0"><Copy size={14} /></button>
+                                                            {(domain.ownership_value || domain.verification_token) && (
+                                                                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-between">
+                                                                    <div>
+                                                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Ownership TXT</div>
+                                                                        <div className="space-y-3">
+                                                                            <div className="space-y-1">
+                                                                                <span className="text-[10px] text-slate-400 uppercase font-bold">Name</span>
+                                                                                <div className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-slate-100 group">
+                                                                                    <span className="font-mono text-[11px] text-slate-800 truncate pr-2">{domain.ownership_name || `_cf-custom-hostname`}</span>
+                                                                                    <button onClick={() => { navigator.clipboard.writeText(domain.ownership_name || `_cf-custom-hostname`); showToast("Copied Name", "success"); }} className="text-slate-300 hover:text-[var(--theme-primary)] transition-colors opacity-0 group-hover:opacity-100 shrink-0"><Copy size={14} /></button>
+                                                                                </div>
                                                                             </div>
-                                                                        </div>
-                                                                        <div className="space-y-1">
-                                                                            <span className="text-[10px] text-slate-400 uppercase font-bold">Value</span>
-                                                                            <div className="flex items-start justify-between bg-white px-3 py-2 rounded-lg border border-slate-100 group min-h-[60px]">
-                                                                                <span className="font-mono text-[10px] text-slate-600 break-all leading-relaxed">
-                                                                                    {domain.ownership_value || domain.verification_token}
-                                                                                </span>
-                                                                                <button onClick={() => { navigator.clipboard.writeText(domain.ownership_value || domain.verification_token); showToast("Copied Value", "success"); }} className="text-slate-300 hover:text-[var(--theme-primary)] transition-colors opacity-0 group-hover:opacity-100 shrink-0 mt-0.5"><Copy size={14} /></button>
+                                                                            <div className="space-y-1">
+                                                                                <span className="text-[10px] text-slate-400 uppercase font-bold">Value</span>
+                                                                                <div className="flex items-start justify-between bg-white px-3 py-2 rounded-lg border border-slate-100 group min-h-[60px]">
+                                                                                    <span className="font-mono text-[10px] text-slate-600 break-all leading-relaxed">
+                                                                                        {domain.ownership_value || domain.verification_token}
+                                                                                    </span>
+                                                                                    <button onClick={() => { navigator.clipboard.writeText(domain.ownership_value || domain.verification_token); showToast("Copied Value", "success"); }} className="text-slate-300 hover:text-[var(--theme-primary)] transition-colors opacity-0 group-hover:opacity-100 shrink-0 mt-0.5"><Copy size={14} /></button>
+                                                                                </div>
                                                                             </div>
                                                                         </div>
                                                                     </div>
                                                                 </div>
-                                                            </div>
+                                                            )}
 
-                                                            {/* SSL TXT RECORD */}
-                                                            {domain.ssl_name && (
+                                                            {/* SSL RECORD (TXT or CNAME) */}
+                                                            {domain.ssl_name && (domain.ownership_value || domain.verification_token) && (
                                                                 <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 flex flex-col justify-between">
                                                                     <div>
-                                                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">SSL Validation TXT</div>
+                                                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex justify-between items-center">
+                                                                            <span>SSL Validation {domain.ssl_value?.includes('.cloudflare.com') ? 'CNAME' : 'TXT'}</span>
+                                                                            {domain.ssl_value?.includes('.cloudflare.com') && (
+                                                                                <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full font-medium normal-case">CNAME</span>
+                                                                            )}
+                                                                        </div>
                                                                         <div className="space-y-3">
                                                                             <div className="space-y-1">
                                                                                 <span className="text-[10px] text-slate-400 uppercase font-bold">Name</span>
@@ -1206,6 +1253,17 @@ export default function Admin() {
                 onConfirm={confirmDelete}
             />
 
+            <ClipModal
+                isOpen={clipModal.isOpen}
+                demo={clipModal.demo}
+                onClose={() => {
+                    setClipModal({ ...clipModal, isOpen: false });
+                    fetchData(); // Refresh to get updated clips
+                }}
+                showToast={showToast}
+                waveformCache={waveformCache.current}
+            />
+
             {
                 toast && (
                     <Toast
@@ -1282,9 +1340,40 @@ interface ItemListProps {
     onSave: (collName: string, id: string, payload?: any) => void;
     onCancel: () => void;
     fields: { key: string; label: string; type?: string }[];
+    extraActions?: (item: any) => ReactNode;
 }
 
-function ItemList({ items, collName, onReorder, onDelete, editingId, setEditingId, editForm, setEditForm, onSave, onCancel, fields }: ItemListProps) {
+function ItemList({ items, collName, onReorder, onDelete, editingId, setEditingId, editForm, setEditForm, onSave, onCancel, fields, extraActions }: ItemListProps) {
+    const [playingId, setPlayingId] = useState<string | null>(null);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+
+    const toggleAudio = (id: string, url: string) => {
+        if (playingId === id) {
+            audioRef.current?.pause();
+            setPlayingId(null);
+        } else {
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current.src = getPlayableUrl(url);
+            } else {
+                audioRef.current = new Audio(getPlayableUrl(url));
+                audioRef.current.onended = () => setPlayingId(null);
+            }
+            audioRef.current.play();
+            setPlayingId(id);
+        }
+    };
+
+    // Cleanup audio on unmount
+    useEffect(() => {
+        return () => {
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current = null;
+            }
+        };
+    }, []);
+
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden divide-y divide-slate-50">
             {items.length === 0 && (
@@ -1300,8 +1389,8 @@ function ItemList({ items, collName, onReorder, onDelete, editingId, setEditingI
                                 <GripVertical size={20} />
                             </div>
 
-                            {/* Preview Column - for videos, studio, and clients */}
-                            {(collName === 'videos' || collName === 'studio' || collName === 'clients') && (
+                            {/* Preview Column - for videos, studio, clients, and demos */}
+                            {(collName === 'videos' || collName === 'studio' || collName === 'clients' || collName === 'demos') && (
                                 <div className="w-24 h-16 flex-shrink-0 bg-slate-100 rounded-lg overflow-hidden">
                                     {collName === 'videos' && (item.youtubeId || item.youtube_id) && (
                                         <img
@@ -1325,6 +1414,17 @@ function ItemList({ items, collName, onReorder, onDelete, editingId, setEditingI
                                             className="w-full h-full object-contain p-2"
                                             onError={(e) => { e.currentTarget.parentElement!.innerHTML = '<div class="w-full h-full flex items-center justify-center text-slate-400 text-xs">No preview</div>'; }}
                                         />
+                                    )}
+                                    {collName === 'demos' && item.url && (
+                                        <div className="w-full h-full flex items-center justify-center bg-slate-50 transition-colors">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); toggleAudio(item.id, item.url); }}
+                                                className="w-8 h-8 flex items-center justify-center bg-white rounded-full shadow-sm text-[var(--theme-primary)] hover:scale-110 transition-all border border-slate-100"
+                                            >
+                                                {playingId === item.id ? <Pause size={16} fill="currentColor" /> : <Play size={16} className="ml-0.5" fill="currentColor" />}
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
                             )}
@@ -1415,6 +1515,7 @@ function ItemList({ items, collName, onReorder, onDelete, editingId, setEditingI
                             </div>
 
                             <div className="flex gap-1">
+                                {extraActions && !editingId && extraActions(item)}
                                 {editingId === item.id ? (
                                     <>
                                         <button onClick={() => onSave(collName, item.id)} className="p-2 text-green-600 hover:bg-green-50 rounded-xl transition-all"><Save size={20} /></button>
@@ -1554,6 +1655,519 @@ function Toast({ message, type, onClose }: ToastProps) {
                 </button>
             )}
             <button onClick={onClose} className="opacity-80 hover:opacity-100"><X size={18} /></button>
+        </div>
+    );
+}
+
+interface ClipModalProps {
+    isOpen: boolean;
+    demo: Demo | null;
+    onClose: () => void;
+    showToast: (message: string, type: 'success' | 'error') => void;
+    waveformCache: Map<string, AudioBuffer>;
+}
+
+function ClipModal({ isOpen, demo, onClose, showToast, waveformCache }: ClipModalProps) {
+    const [clips, setClips] = useState<{ label: string; startTime: number }[]>([]);
+    const [saving, setSaving] = useState(false);
+    const audioRef = useRef<HTMLAudioElement>(null);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
+    const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
+    const [loadingWaveform, setLoadingWaveform] = useState(false);
+    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const waveformRef = useRef<HTMLDivElement>(null);
+    const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
+    const [bulkLabels, setBulkLabels] = useState("");
+    const [showBulk, setShowBulk] = useState(false);
+    const [editingIdx, setEditingIdx] = useState<number | null>(null);
+
+    // Sync bulk labels when opening the panel
+    useEffect(() => {
+        if (showBulk && clips) {
+            setBulkLabels(clips.map(s => s.label).join('\n'));
+        }
+    }, [showBulk]);
+
+    useEffect(() => {
+        if (demo && isOpen) {
+            const initialClips = (demo as any).segments;
+            setClips(Array.isArray(initialClips) ? initialClips : []);
+        }
+    }, [demo?.id, isOpen]);
+
+    useEffect(() => {
+        const fetchAudio = async () => {
+            if (!demo || !isOpen) return;
+
+            // Check Cache first
+            if (waveformCache.has(demo.id)) {
+                setAudioBuffer(waveformCache.get(demo.id)!);
+                return;
+            }
+
+            setLoadingWaveform(true);
+            try {
+                const url = getPlayableUrl(demo.url);
+                let response;
+                try {
+                    response = await fetch(url);
+                    if (!response.ok) throw new Error();
+                } catch (e) {
+                    try {
+                        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+                        response = await fetch(proxyUrl);
+                        if (!response.ok) throw new Error();
+                    } catch (e2) {
+                        const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+                        response = await fetch(proxyUrl);
+                    }
+                }
+
+                if (!response || !response.ok) return;
+                const arrayBuffer = await response.arrayBuffer();
+                const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                const buffer = await audioCtx.decodeAudioData(arrayBuffer);
+                setAudioBuffer(buffer);
+                waveformCache.set(demo.id, buffer);
+            } catch (error) {
+                console.error("Waveform error:", error);
+            } finally {
+                setLoadingWaveform(false);
+            }
+        };
+
+        if (isOpen) fetchAudio();
+        else {
+            setAudioBuffer(null);
+            setIsPlaying(false);
+        }
+    }, [demo?.id, isOpen, getPlayableUrl]);
+
+    // Draw Waveform
+    useEffect(() => {
+        if (!audioBuffer || !canvasRef.current) return;
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = canvas.offsetWidth * dpr;
+        canvas.height = canvas.offsetHeight * dpr;
+        ctx.scale(dpr, 1);
+
+        const width = canvas.offsetWidth;
+        const height = canvas.offsetHeight;
+        const data = audioBuffer.getChannelData(0);
+        const step = Math.ceil(data.length / width);
+        const amp = height / 2;
+
+        ctx.clearRect(0, 0, width, height);
+        ctx.beginPath();
+        ctx.strokeStyle = '#6366f1'; // Indigo 500
+        ctx.lineWidth = 1;
+
+        for (let i = 0; i < width; i++) {
+            let min = 1.0;
+            let max = -1.0;
+            for (let j = 0; j < step; j++) {
+                const datum = data[(i * step) + j];
+                if (datum < min) min = datum;
+                if (datum > max) max = datum;
+            }
+            ctx.moveTo(i, (1 + min) * amp);
+            ctx.lineTo(i, (1 + max) * amp);
+        }
+        ctx.stroke();
+    }, [audioBuffer]);
+
+    const addClipAtCurrentTime = useCallback(() => {
+        if (audioRef.current) {
+            const time = Math.round(audioRef.current.currentTime * 100) / 100;
+            setClips(prev => {
+                const newClips = [...prev, { label: `Clip ${prev.length + 1}`, startTime: time }];
+                return [...newClips].sort((a, b) => a.startTime - b.startTime);
+            });
+        }
+    }, [audioRef]);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (!isOpen) return;
+
+            // Don't trigger if user is typing in a TEXT input or textarea
+            if (e.target instanceof HTMLTextAreaElement) return;
+            if (e.target instanceof HTMLInputElement && (e.target.type === "text" || e.target.type === "number")) {
+                return;
+            }
+
+            if (e.code === "Space") {
+                e.preventDefault();
+                if (audioRef.current) {
+                    if (audioRef.current.paused) {
+                        audioRef.current.play();
+                        setIsPlaying(true);
+                    } else {
+                        audioRef.current.pause();
+                        setIsPlaying(false);
+                    }
+                }
+            }
+
+            if (e.key === "Enter") {
+                e.preventDefault();
+                if (audioRef.current) {
+                    audioRef.current.pause();
+                    audioRef.current.currentTime = 0;
+                    setCurrentTime(0);
+                    setIsPlaying(false);
+                }
+            }
+
+            if (e.key === "ArrowLeft") {
+                e.preventDefault();
+                if (audioRef.current) {
+                    audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - 0.5);
+                    setCurrentTime(audioRef.current.currentTime);
+                }
+            }
+
+            if (e.key === "ArrowRight") {
+                e.preventDefault();
+                if (audioRef.current) {
+                    audioRef.current.currentTime = Math.min(duration, audioRef.current.currentTime + 0.5);
+                    setCurrentTime(audioRef.current.currentTime);
+                }
+            }
+
+            if (e.key.toLowerCase() === "a") {
+                e.preventDefault();
+                addClipAtCurrentTime();
+            }
+
+            if (e.key === "Escape") {
+                if (editingIdx !== null) {
+                    setEditingIdx(null);
+                } else {
+                    onClose();
+                }
+            }
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [isOpen, duration, addClipAtCurrentTime, editingIdx]);
+
+    if (!isOpen || !demo) return null;
+
+
+
+    const handleWaveformMouseMove = (e: React.MouseEvent) => {
+        if (draggingIdx === null || !waveformRef.current || !duration) return;
+
+        const rect = waveformRef.current.getBoundingClientRect();
+        const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+        const newTime = Math.round((x / rect.width) * duration * 100) / 100;
+
+        const newClips = [...clips];
+        newClips[draggingIdx].startTime = newTime;
+        setClips(newClips);
+    };
+
+    const handleWaveformMouseUp = () => {
+        if (draggingIdx !== null) {
+            const newClips = [...clips];
+            newClips.sort((a, b) => a.startTime - b.startTime);
+            setClips(newClips);
+            setDraggingIdx(null);
+        }
+    };
+
+    const handleSave = async () => {
+        setSaving(true);
+        try {
+            const { error } = await supabase.from('demos').update({
+                segments: clips
+            } as any).eq('id', demo.id);
+
+            if (error) throw error;
+            showToast("Clips saved successfully!");
+            onClose();
+        } catch (error: any) {
+            console.error("Failed to save clips:", error);
+            alert(`Failed to save clips: ${error.message || error.error_description || JSON.stringify(error)}`);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200" onClick={onClose}>
+            <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-6xl w-full border border-slate-100 flex flex-col max-h-[90vh] scale-100 animate-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-6">
+                    <div>
+                        <h3 className="text-2xl font-bold text-slate-800">{demo.name} Clips</h3>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400"><X size={24} /></button>
+                </div>
+
+                {/* Manual Clipper Control */}
+                <div className="bg-slate-50 rounded-2xl p-6 mb-6 text-slate-900 shadow-inner border border-slate-200">
+                    <audio
+                        ref={audioRef}
+                        src={getPlayableUrl(demo.url)}
+                        onTimeUpdate={() => audioRef.current && setCurrentTime(audioRef.current.currentTime)}
+                        onLoadedMetadata={() => audioRef.current && setDuration(audioRef.current.duration)}
+                    />
+
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="text-xs font-mono text-slate-500">
+                            {Math.floor(currentTime / 60)}:{Math.floor(currentTime % 60).toString().padStart(2, '0')}.<span className="text-[10px] opacity-70">{(currentTime % 1).toFixed(2).split('.')[1]}</span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <button onClick={() => audioRef.current && (audioRef.current.currentTime -= 5)} className="p-2 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-700 transition-colors"><Rewind size={20} /></button>
+                            <button
+                                onClick={() => {
+                                    if (audioRef.current?.paused) { audioRef.current.play(); setIsPlaying(true); }
+                                    else { audioRef.current?.pause(); setIsPlaying(false); }
+                                }}
+                                className="w-12 h-12 bg-[var(--theme-primary)] rounded-full flex items-center justify-center text-white hover:scale-105 transition-all shadow-lg shadow-[var(--theme-primary)]/40"
+                            >
+                                {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1" />}
+                            </button>
+                            <button onClick={() => audioRef.current && (audioRef.current.currentTime += 5)} className="p-2 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-700 transition-colors"><FastForward size={20} /></button>
+                        </div>
+                        <div className="text-xs font-mono text-slate-500">
+                            {Math.floor(duration / 60)}:{Math.floor(duration % 60).toString().padStart(2, '0')}
+                        </div>
+                    </div>
+
+                    <div
+                        ref={waveformRef}
+                        className="relative h-32 my-10 group select-none"
+                        onMouseMove={handleWaveformMouseMove}
+                        onMouseUp={handleWaveformMouseUp}
+                        onMouseLeave={handleWaveformMouseUp}
+                    >
+                        <style>{`
+                            .admin-scrubber { z-index: 10; relative; }
+                            .admin-scrubber::-webkit-slider-thumb {
+                                appearance: none;
+                                width: 4px;
+                                height: 144px;
+                                background: white;
+                                border: 1px solid #EAB308;
+                                border-radius: 2px;
+                                cursor: ew-resize;
+                                box-shadow: 0 0 15px rgba(234, 179, 8, 0.8), 0 0 5px rgba(0,0,0,0.5);
+                                transition: all 0.1s;
+                                margin-top: -8px;
+                            }
+                            .admin-scrubber::-moz-range-thumb {
+                                width: 4px;
+                                height: 144px;
+                                background: white;
+                                border: 1px solid #EAB308;
+                                border-radius: 2px;
+                                cursor: ew-resize;
+                                box-shadow: 0 0 15px rgba(234, 179, 8, 0.8), 0 0 5px rgba(0,0,0,0.5);
+                            }
+                        `}</style>
+
+                        {/* Visual Markers on Waveform */}
+                        {(Array.isArray(clips) ? clips : []).map((clip, i) => {
+                            const isTop = i % 2 === 0;
+                            const isEditing = editingIdx === i;
+
+                            return (
+                                <div
+                                    key={i}
+                                    className={`absolute top-0 bottom-0 w-1.5 -ml-0.75 cursor-ew-resize z-20 group/marker transition-colors ${draggingIdx === i ? 'bg-yellow-400' : 'bg-[var(--theme-primary)]'}`}
+                                    style={{ left: `${(clip.startTime / (duration || 1)) * 100}%` }}
+                                    onMouseDown={(e) => {
+                                        e.stopPropagation();
+                                        setDraggingIdx(i);
+                                    }}
+                                >
+                                    {/* Handle Line */}
+                                    <div className={`absolute inset-y-0 left-1/2 w-px -translate-x-1/2 ${draggingIdx === i ? 'bg-yellow-400' : 'bg-white/50'}`} />
+
+                                    {/* Interactive Segment Label */}
+                                    <div
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setEditingIdx(i);
+                                            if (audioRef.current) audioRef.current.currentTime = clip.startTime;
+                                        }}
+                                        className={`absolute left-1/2 -translate-x-1/2 bg-[var(--theme-primary)] text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-lg whitespace-nowrap z-30 cursor-pointer border border-white/20 hover:scale-110 transition-transform ${isTop ? 'bottom-full mb-3' : 'top-full mt-3'} ${isEditing ? 'ring-2 ring-white ring-offset-2 ring-offset-slate-900 scale-110' : ''}`}
+                                    >
+                                        {clip.label}
+                                    </div>
+
+                                    {/* Inline Popup Editor */}
+                                    {isEditing && (
+                                        <div
+                                            className={`absolute left-1/2 -translate-x-1/2 bg-white rounded-xl shadow-2xl p-4 w-56 z-50 border border-slate-100 flex flex-col gap-3 animate-in zoom-in-95 duration-150 ${isTop ? 'bottom-full mb-12' : 'top-full mt-12'}`}
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            <div className="flex justify-between items-center mb-1">
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Edit Clip</span>
+                                                <button
+                                                    onClick={() => {
+                                                        setClips(clips.filter((_, idx) => idx !== i));
+                                                        setEditingIdx(null);
+                                                    }}
+                                                    className="text-slate-300 hover:text-red-500 transition-colors p-1"
+                                                    title="Remove Clip"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                            <div>
+                                                <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Label</label>
+                                                <input
+                                                    autoFocus
+                                                    value={clip.label}
+                                                    onChange={(e) => {
+                                                        const next = [...clips];
+                                                        next[i].label = e.target.value;
+                                                        setClips(next);
+                                                    }}
+                                                    className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1.5 text-xs font-medium focus:ring-2 focus:ring-[var(--theme-primary)]/20 outline-none text-slate-800"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[9px] font-bold text-slate-400 uppercase mb-1 block">Start Time (sec)</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={clip.startTime}
+                                                    onChange={(e) => {
+                                                        const next = [...clips];
+                                                        next[i].startTime = parseFloat(e.target.value);
+                                                        next.sort((a, b) => a.startTime - b.startTime);
+                                                        setClips(next);
+                                                        // Keep index synced after sort
+                                                        const newIdx = next.findIndex(s => s === clip);
+                                                        if (newIdx !== -1) setEditingIdx(newIdx);
+                                                    }}
+                                                    className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1.5 text-xs font-mono focus:ring-2 focus:ring-[var(--theme-primary)]/20 outline-none text-slate-800"
+                                                />
+                                            </div>
+                                            <button
+                                                onClick={() => setEditingIdx(null)}
+                                                className="mt-2 w-full py-2.5 flex items-center justify-center gap-2 bg-slate-900 hover:bg-black text-white rounded-xl text-[10px] font-bold uppercase transition-all active:scale-95 shadow-lg shadow-black/10"
+                                            >
+                                                <Check size={14} /> Done
+                                            </button>
+                                            {/* Connector arrow */}
+                                            <div className={`absolute left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-l border-t border-slate-100 rotate-[45deg] ${isTop ? 'bottom-[-9px]' : 'top-[-9px] rotate-[225deg]'}`} />
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+
+                        {/* Waveform Canvas & Scrubber Background */}
+                        <div className="absolute inset-0 rounded-xl overflow-hidden bg-slate-200/50 border border-slate-300/50 pointer-events-none">
+                            {loadingWaveform && (
+                                <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-slate-500 uppercase tracking-widest animate-pulse">
+                                    Loading Waveform...
+                                </div>
+                            )}
+                            <canvas
+                                ref={canvasRef}
+                                className="w-full h-full opacity-80 mix-blend-multiply"
+                            />
+                        </div>
+
+                        {/* Progress Overlay */}
+                        <div
+                            className="absolute top-0 left-0 bottom-0 bg-[var(--theme-primary)]/20 pointer-events-none"
+                            style={{ width: `${(currentTime / duration) * 100}%` }}
+                        />
+
+                        {/* Actual Scrubber Input */}
+                        <input
+                            type="range"
+                            min="0"
+                            max={duration || 0}
+                            step="0.01"
+                            value={currentTime}
+                            onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                setCurrentTime(val);
+                                if (audioRef.current) audioRef.current.currentTime = val;
+                            }}
+                            className="admin-scrubber absolute inset-0 w-full h-full appearance-none bg-transparent cursor-pointer outline-none"
+                            onMouseDown={() => setDraggingIdx(null)}
+                        />
+                    </div>
+
+                    <button
+                        onClick={addClipAtCurrentTime}
+                        className="w-full py-4 bg-white/50 hover:bg-white border border-slate-200 rounded-xl font-bold text-sm tracking-wide transition-all flex items-center justify-center gap-3 hover:border-[var(--theme-primary)]/50 group text-slate-700 shadow-sm"
+                    >
+                        <Scissors size={20} className="text-[var(--theme-primary)] group-hover:scale-110 transition-transform" />
+                        ADD CLIP AT <span className="text-[var(--theme-primary)]">{Math.floor(currentTime / 60)}:{Math.floor(currentTime % 60).toString().padStart(2, '0')}.{(currentTime % 1).toFixed(2).split('.')[1]}</span>
+                        <span className="text-[10px] opacity-40 font-mono ml-2">(PRESS 'A')</span>
+                    </button>
+                </div>
+
+                <div className="flex justify-between items-center mb-4">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">
+                        {(Array.isArray(clips) ? clips : []).length} Clips Defined
+                    </label>
+                    <button
+                        onClick={() => setShowBulk(!showBulk)}
+                        className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg transition-all flex items-center gap-2 ${showBulk ? 'bg-[var(--theme-primary)] text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                    >
+                        <Copy size={12} /> {showBulk ? 'Close Paste' : 'Bulk Paste Labels'}
+                    </button>
+                </div>
+
+                {showBulk && (
+                    <div className="mb-6 animate-in slide-in-from-top-2 duration-200">
+                        <div className="bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl p-4">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase mb-2 block">Paste tracklist / labels (One per line)</label>
+                            <textarea
+                                className="w-full h-32 bg-white border border-slate-200 rounded-xl p-4 text-sm focus:ring-2 focus:ring-[var(--theme-primary)]/20 outline-none resize-none font-medium text-slate-800"
+                                value={bulkLabels}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setBulkLabels(val);
+                                    const lines = val.split('\n').filter(l => l.trim() !== "");
+                                    setClips(prev => {
+                                        // Sync the number of clips to match the number of lines
+                                        return lines.map((line, i) => {
+                                            if (prev[i]) {
+                                                return { ...prev[i], label: line };
+                                            }
+                                            return { label: line, startTime: 0 };
+                                        });
+                                    });
+                                }}
+                            />
+                            <p className="text-[10px] text-slate-400 mt-2 italic">Names will be applied to clips 1, 2, 3... in order.</p>
+                        </div>
+                    </div>
+                )}
+
+                <div className="flex justify-end items-center pt-6 border-t border-slate-100">
+                    <div className="flex gap-3">
+                        <button onClick={onClose} className="px-6 py-2.5 text-slate-500 font-semibold hover:bg-slate-50 rounded-xl transition-all">Cancel</button>
+                        <button
+                            onClick={handleSave}
+                            disabled={saving}
+                            className="px-8 py-2.5 bg-[var(--theme-primary)] hover:opacity-90 text-white font-bold rounded-xl shadow-lg shadow-[var(--theme-primary)]/20 transition-all active:scale-[0.98]"
+                        >
+                            {saving ? "Saving..." : "Save Clips"}
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }

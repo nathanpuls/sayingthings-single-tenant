@@ -1,2 +1,2 @@
 #!/bin/bash
-exec npm run dev
+exec npm run dev -- --open
