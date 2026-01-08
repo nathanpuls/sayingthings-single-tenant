@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import {
     Trash2, Edit2, Save, X, LogOut, LogIn, UploadCloud,
     Home, Music, Video, Mic, Users,
-    MessageSquare, Contact, Info, Settings, Share2, GripVertical, Mail, Globe, CheckCircle, AlertCircle, Copy, Eye, EyeOff
+    MessageSquare, Contact, Info, Settings, Share2, GripVertical, Mail, Globe, CheckCircle, AlertCircle, Copy, Eye, EyeOff, RefreshCw
 } from "lucide-react";
 import { motion, Reorder, AnimatePresence } from "framer-motion";
 import { getUserCustomDomains, addCustomDomain, verifyDomainOwnership } from "../lib/domains";
@@ -897,6 +897,28 @@ export default function Admin() {
                                                         )}
                                                     </div>
                                                     <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={async () => {
+                                                                try {
+                                                                    setUploading(true);
+                                                                    const result = await addCustomDomain(domain.domain);
+                                                                    if (result.success) {
+                                                                        showToast("Domain status refreshed", "success");
+                                                                        fetchData();
+                                                                    } else {
+                                                                        showToast(result.error || "Failed to refresh", "error");
+                                                                    }
+                                                                } catch (err: any) {
+                                                                    showToast(err.message, "error");
+                                                                } finally {
+                                                                    setUploading(false);
+                                                                }
+                                                            }}
+                                                            className="text-xs font-bold text-slate-500 hover:text-[var(--theme-primary)] px-3 py-2 flex items-center gap-1"
+                                                            disabled={uploading}
+                                                        >
+                                                            <RefreshCw size={12} className={uploading ? "animate-spin" : ""} /> Refresh Status
+                                                        </button>
                                                         {!domain.verified && (
                                                             <button
                                                                 onClick={() => handleCheckVerification(domain)}

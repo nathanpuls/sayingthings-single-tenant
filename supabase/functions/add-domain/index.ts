@@ -73,35 +73,55 @@ serve(async (req: Request) => {
         }
 
         // Real Cloudflare Implementation
-        const cfResponse = await fetch(
-            `https://api.cloudflare.com/client/v4/zones/${cfZoneId}/custom_hostnames`,
+        // 2a. Check if hostname already exists
+        const checkCfResponse = await fetch(
+            `https://api.cloudflare.com/client/v4/zones/${cfZoneId}/custom_hostnames?hostname=${domain}`,
             {
-                method: 'POST',
+                method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${cfToken}`,
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    hostname: domain,
-                    ssl: {
-                        method: 'txt',
-                        type: 'dv',
-                    },
-                }),
             }
         )
+        const checkCfData = await checkCfResponse.json()
+        let hostnameResult = null;
 
-        const cfData = await cfResponse.json()
+        if (checkCfData.success && checkCfData.result.length > 0) {
+            // Already exists, use this one
+            hostnameResult = checkCfData.result[0];
+            console.log("Found existing hostname record");
+        } else {
+            // Not found, create it
+            const cfResponse = await fetch(
+                `https://api.cloudflare.com/client/v4/zones/${cfZoneId}/custom_hostnames`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${cfToken}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        hostname: domain,
+                        ssl: {
+                            method: 'txt',
+                            type: 'dv',
+                        },
+                    }),
+                }
+            )
 
-        if (!cfData.success) {
-            console.error("Cloudflare Error:", cfData.errors)
-            return new Response(JSON.stringify({ error: cfData.errors[0]?.message || "Cloudflare Error" }), {
-                status: 400,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            })
+            const cfData = await cfResponse.json()
+
+            if (!cfData.success) {
+                console.error("Cloudflare Error:", cfData.errors)
+                return new Response(JSON.stringify({ error: cfData.errors[0]?.message || "Cloudflare Error" }), {
+                    status: 400,
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                })
+            }
+            hostnameResult = cfData.result;
         }
-
-        const hostnameResult = cfData.result
 
         // Ownership verification
         const ownership = hostnameResult.ownership_verification || {};
@@ -131,9 +151,24 @@ serve(async (req: Request) => {
 
         if (dbError) {
             if (dbError.code === '23505') {
-                return new Response(JSON.stringify({ error: "Domain already registered" }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+                // Already in DB, update it instead
+                const { error: updateError } = await supabaseClient
+                    .from('custom_domains')
+                    .update({
+                        verification_token: ownershipValue,
+                        ownership_type: ownershipType,
+                        ownership_name: ownershipName,
+                        ownership_value: ownershipValue,
+                        ssl_name: sslName,
+                        ssl_value: sslValue,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('domain', domain);
+
+                if (updateError) throw updateError;
+            } else {
+                throw dbError
             }
-            throw dbError
         }
 
         return new Response(JSON.stringify({

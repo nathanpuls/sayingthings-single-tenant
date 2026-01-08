@@ -21,14 +21,8 @@ async function checkDomains() {
     if (data.length === 0) {
         console.log("No custom domains found in the database.");
     } else {
-        console.log("Current Custom Domains:");
-        console.table(data.map(d => ({
-            id: d.id,
-            domain: d.domain,
-            verified: d.verified,
-            ssl: !!d.ssl_value,
-            user: d.user_id
-        })));
+        console.log("Current Custom Domains (Full Details):");
+        console.log(JSON.stringify(data, null, 2));
     }
 }
 
