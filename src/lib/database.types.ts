@@ -230,6 +230,7 @@ export interface Database {
                     show_contact_form: boolean
                     hidden_sections: string[] | null
                     favicon: string | null
+                    username: string | null
                     created_at: string
                 }
                 Insert: {

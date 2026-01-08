@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { getUserIdFromDomain } from "../lib/domains";
+import { resolveUser } from "../lib/users";
 import { applyFont } from "../lib/fonts";
 import AudioPlayer from "../components/AudioPlayer";
 import { Mic, Video, Users, MessageSquare, User, Mail, Phone, Menu, X, Play, Pause, Check, Settings, ChevronDown, LogIn, Sparkles, Zap, Globe, Layout, ChevronRight } from "lucide-react";
@@ -223,9 +224,12 @@ export default function Home() {
       setCurrentUser(user);
 
       // Check if we're on a custom domain first
-      let userId: string | null | undefined = uid;
+      let userId: string | null | undefined = null;
 
-      if (!userId) {
+      if (uid) {
+        // Resolve UID or Username
+        userId = await resolveUser(uid);
+      } else {
         // Try to get user ID from custom domain
         userId = await getUserIdFromDomain();
       }

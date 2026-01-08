@@ -43,6 +43,7 @@ interface SiteContentState {
     web3FormsKey: string;
     showContactForm: boolean;
     favicon: string;
+    username: string;
 }
 
 // const authorizedEmail = "natepuls@gmail.com";
@@ -104,6 +105,7 @@ export default function Admin() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [customDomains, setCustomDomains] = useState<any[]>([]); // Using any for customDomains as type might differ slightly from DB
     const [siteContent, setSiteContent] = useState<SiteContentState>({
+        username: "",
         heroTitle: "",
         heroSubtitle: "",
         aboutTitle: "",
@@ -253,7 +255,8 @@ export default function Admin() {
                 web3FormsKey: settings.web3_forms_key || "",
                 showContactForm: settings.show_contact_form !== false,
                 hiddenSections: (settings.hidden_sections as any) || [],
-                favicon: settings.favicon || ""
+                favicon: settings.favicon || "",
+                username: settings.username || ""
             });
             if (settings.font) applyFont(settings.font);
         }
@@ -534,7 +537,8 @@ export default function Admin() {
                 web3_forms_key: siteContent.web3FormsKey,
                 show_contact_form: siteContent.showContactForm,
                 hidden_sections: siteContent.hiddenSections,
-                favicon: siteContent.favicon
+                favicon: siteContent.favicon,
+                username: siteContent.username || null
             };
 
             const { error } = await (supabase.from('site_settings' as any) as any).upsert(payload, { onConflict: 'user_id' });
@@ -1089,6 +1093,32 @@ export default function Admin() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                                     <Section title="Hero Section" icon={<Settings size={18} />}>
                                         <div className="space-y-6">
+                                            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <label className="text-xs font-bold text-slate-700 uppercase tracking-wide">Username / URL</label>
+                                                    <a href={`https://built.at/u/${siteContent.username || user?.id}`} target="_blank" rel="noreferrer" className="text-[10px] text-[var(--theme-primary)] hover:underline flex items-center gap-1">
+                                                        <Globe size={10} />
+                                                        View Live
+                                                    </a>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm text-slate-400 font-mono">built.at/u/</span>
+                                                    <input
+                                                        type="text"
+                                                        value={siteContent.username}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, '');
+                                                            setSiteContent({ ...siteContent, username: val });
+                                                        }}
+                                                        placeholder="username"
+                                                        className="flex-1 bg-white px-3 py-2 rounded-lg border border-slate-300 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-[var(--theme-primary)]/20 focus:border-[var(--theme-primary)] placeholder:text-slate-300"
+                                                    />
+                                                </div>
+                                                <p className="text-[10px] text-slate-400 mt-2">
+                                                    This will be your public profile URL: <b>built.at/u/{siteContent.username || 'username'}</b>
+                                                </p>
+                                            </div>
+
                                             <Field label="Site Name" value={siteContent.siteName} onChange={v => setSiteContent({ ...siteContent, siteName: v })} />
                                             <Field label="Hero Title" value={siteContent.heroTitle} onChange={v => setSiteContent({ ...siteContent, heroTitle: v })} />
                                             <Field label="Hero Subtitle" value={siteContent.heroSubtitle} onChange={v => setSiteContent({ ...siteContent, heroSubtitle: v })} />
