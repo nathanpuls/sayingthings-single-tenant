@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { Play, Pause, ChevronDown, Copy, X, Check } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Play, Pause, ChevronDown } from 'lucide-react';
+import ClipsList from './voice-clips/ClipsList';
+import ShareModal from './voice-clips/ShareModal';
 
 interface Clip {
     name: string;
@@ -47,9 +48,7 @@ export default function VoiceClipsPlayer({ tracks, themeColor = '#6366f1' }: Voi
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [dropdownOpen, setDropdownOpen] = useState(false);
-    const [showCopied, setShowCopied] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
-    const [copiedId, setCopiedId] = useState<string | null>(null);
     const audioRef = useRef<HTMLAudioElement>(null);
 
     // Update URL when track changes
@@ -146,30 +145,6 @@ export default function VoiceClipsPlayer({ tracks, themeColor = '#6366f1' }: Voi
         }
     };
 
-    const copyToClipboard = (text: string, id?: string) => {
-        navigator.clipboard.writeText(text).then(() => {
-            if (id) {
-                setCopiedId(id);
-                setTimeout(() => setCopiedId(null), 2000);
-            }
-            setShowCopied(true);
-            setTimeout(() => setShowCopied(false), 2000);
-        }).catch(() => {
-            const textArea = document.createElement("textarea");
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-            if (id) {
-                setCopiedId(id);
-                setTimeout(() => setCopiedId(null), 2000);
-            }
-            setShowCopied(true);
-            setTimeout(() => setShowCopied(false), 2000);
-        });
-    };
-
     // Smooth progress updates using requestAnimationFrame
     useEffect(() => {
         let animationFrameId: number;
@@ -213,20 +188,6 @@ export default function VoiceClipsPlayer({ tracks, themeColor = '#6366f1' }: Voi
             }
         };
     }, [isPlaying, currentClipIndex, selectedTrack]);
-
-    const getClipProgress = (clip: Clip) => {
-        if (currentClipIndex === null || !selectedTrack) return 0;
-
-        // If clip.end is very large (like 999999), use actual audio duration
-        const audio = audioRef.current;
-        const effectiveEnd = clip.end > 10000 && audio?.duration
-            ? audio.duration
-            : clip.end;
-
-        const clipDuration = effectiveEnd - clip.start;
-        const elapsed = currentTime - clip.start;
-        return Math.max(0, Math.min(100, (elapsed / clipDuration) * 100));
-    };
 
     return (
         <div
@@ -331,144 +292,17 @@ export default function VoiceClipsPlayer({ tracks, themeColor = '#6366f1' }: Voi
 
                 {/* Clips List with Full-Height Progress Bars */}
                 {selectedTrack && selectedTrack.clips.length > 0 && (
-                    <div className="space-y-1 h-[280px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent hover:scrollbar-thumb-slate-400">
-                        <style>{`
-                            .scrollbar-thin::-webkit-scrollbar {
-                                width: 6px;
-                            }
-                            .scrollbar-thin::-webkit-scrollbar-track {
-                                background: transparent;
-                            }
-                            .scrollbar-thin::-webkit-scrollbar-thumb {
-                                background-color: rgb(203 213 225);
-                                border-radius: 3px;
-                            }
-                            .scrollbar-thin:hover::-webkit-scrollbar-thumb {
-                                background-color: rgb(148 163 184);
-                            }
-                        `}</style>
-                        {selectedTrack.clips.map((clip, index) => {
-                            const isCurrentClip = index === currentClipIndex;
-                            const clipProgress = isCurrentClip ? getClipProgress(clip) : 0;
-
-                            return (
-                                <button
-                                    key={index}
-                                    onClick={(e) => {
-                                        const audio = audioRef.current;
-                                        if (!audio || !selectedTrack) return;
-
-                                        // If this is not the current clip, just start playing it from the beginning
-                                        if (currentClipIndex !== index) {
-                                            setCurrentClipIndex(index);
-                                            audio.currentTime = clip.start;
-                                            audio.play();
-                                            setIsPlaying(true);
-                                        } else {
-                                            // If it's the current clip and playing, allow seeking
-                                            if (isPlaying) {
-                                                // Calculate click position as percentage
-                                                const rect = e.currentTarget.getBoundingClientRect();
-                                                const clickX = e.clientX - rect.left;
-                                                const percentage = clickX / rect.width;
-
-                                                // Calculate time within the clip
-                                                // Use effective end for clips with huge end times
-                                                const effectiveEnd = clip.end > 10000 && audio.duration
-                                                    ? audio.duration
-                                                    : clip.end;
-                                                const clipDuration = effectiveEnd - clip.start;
-                                                const seekTime = clip.start + (clipDuration * percentage);
-
-                                                // Seek to that position
-                                                audio.currentTime = Math.max(clip.start, Math.min(seekTime, effectiveEnd));
-                                                audio.play();
-                                            } else {
-                                                // If it's paused, just resume from current position
-                                                audio.play();
-                                                setIsPlaying(true);
-                                            }
-                                        }
-                                    }}
-                                    className="voiceclips-clip-button w-full relative overflow-hidden rounded-lg border border-slate-200 hover:border-slate-300 transition-all group cursor-pointer focus:outline-none focus-visible:outline-none active:outline-none"
-                                    style={{ WebkitTapHighlightColor: 'transparent' }}
-                                >
-                                    {/* Full-height progress background */}
-                                    <div
-                                        className="absolute inset-0 pointer-events-none"
-                                    >
-                                        <div
-                                            className="h-full"
-                                            style={{
-                                                width: `${clipProgress}%`,
-                                                backgroundColor: `${themeColor}15`
-                                            }}
-                                        />
-                                    </div>
-
-                                    {/* Content */}
-                                    <div className="relative flex items-center gap-3 px-3 py-2.5">
-                                        {/* Discreet play button */}
-                                        <div
-                                            className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all cursor-pointer ${isCurrentClip && isPlaying
-                                                ? 'text-[var(--theme-color)]'
-                                                : 'text-slate-400 group-hover:text-slate-600'
-                                                }`}
-                                            onClick={(e) => {
-                                                e.stopPropagation(); // Prevent triggering the parent button's seek behavior
-
-                                                const audio = audioRef.current;
-                                                if (!audio || !selectedTrack) return;
-
-                                                if (isCurrentClip && isPlaying) {
-                                                    // Pause if this clip is currently playing
-                                                    audio.pause();
-                                                    setIsPlaying(false);
-                                                } else {
-                                                    // Play this clip
-                                                    if (currentClipIndex !== index) {
-                                                        setCurrentClipIndex(index);
-                                                        audio.currentTime = clip.start;
-                                                    }
-                                                    audio.play();
-                                                    setIsPlaying(true);
-                                                }
-                                            }}
-                                        >
-                                            {isCurrentClip && isPlaying ? (
-                                                <Pause size={14} fill="currentColor" />
-                                            ) : (
-                                                <Play size={14} fill="currentColor" className="ml-0.5" />
-                                            )}
-                                        </div>
-
-                                        {/* Clip name - smaller font */}
-                                        <span className={`text-sm font-medium truncate ${isCurrentClip && isPlaying ? 'text-[var(--theme-color)]' : 'text-slate-700'
-                                            }`}>
-                                            {clip.name}
-                                        </span>
-                                    </div>
-                                </button>
-                            );
-                        })}
-                    </div>
+                    <ClipsList
+                        selectedTrack={selectedTrack}
+                        currentClipIndex={currentClipIndex}
+                        isPlaying={isPlaying}
+                        themeColor={themeColor}
+                        audioRef={audioRef}
+                        currentTime={currentTime}
+                        setIsPlaying={setIsPlaying}
+                        setCurrentClipIndex={setCurrentClipIndex}
+                    />
                 )}
-
-                {/* Toast Notification Overlay */}
-                <AnimatePresence>
-                    {showCopied && (
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                            className="absolute bottom-16 left-0 right-0 z-[100] flex justify-center pointer-events-none"
-                        >
-                            <div className="bg-slate-900 text-white text-xs font-semibold px-4 py-2 rounded-full shadow-2xl ring-1 ring-white/10">
-                                Copied to clipboard!
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
 
                 {/* Footer and Notifications Area */}
                 <div className="relative pt-4 border-t border-slate-100">
@@ -502,83 +336,11 @@ export default function VoiceClipsPlayer({ tracks, themeColor = '#6366f1' }: Voi
             </div >
 
             {/* Share Modal */}
-            <AnimatePresence>
-                {showShareModal && (
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        className="absolute inset-0 z-50 bg-white/98 backdrop-blur-md p-6 flex flex-col justify-center border border-slate-200 rounded-2xl"
-                    >
-                        <button
-                            onClick={() => setShowShareModal(false)}
-                            className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 p-1.5 hover:bg-slate-100 rounded-full transition-all"
-                        >
-                            <X size={20} />
-                        </button>
-
-                        <div className="space-y-6">
-                            <div className="text-center">
-                                <h3 className="text-lg font-bold text-slate-800">Share Player</h3>
-                                <p className="text-[10px] text-slate-400 mt-0.5 font-medium tracking-tight uppercase">Copy link or embed code</p>
-                            </div>
-
-                            <div className="space-y-5">
-                                <div>
-                                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">
-                                        Public Link
-                                    </label>
-                                    <div className="group relative flex gap-2">
-                                        <input
-                                            type="text"
-                                            readOnly
-                                            value={window.location.href}
-                                            onClick={(e) => (e.target as HTMLInputElement).select()}
-                                            className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-500 outline-none focus:border-[var(--theme-color)] transition-colors font-medium"
-                                        />
-                                        <button
-                                            onClick={() => copyToClipboard(window.location.href, 'url')}
-                                            className={`w-12 rounded-xl transition-all flex items-center justify-center flex-shrink-0 ${copiedId === 'url' ? 'bg-green-500 text-white shadow-green-200' : 'bg-[var(--theme-color)] text-white hover:opacity-90 shadow-sm'} shadow-md`}
-                                            title="Copy link"
-                                        >
-                                            {copiedId === 'url' ? <Check size={16} /> : <Copy size={16} />}
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">
-                                        Embed Code
-                                    </label>
-                                    <div className="group relative flex gap-2">
-                                        <textarea
-                                            readOnly
-                                            rows={2}
-                                            value={`<iframe src="${window.location.href}" width="100%" height="600" frameborder="0" allow="autoplay" style="border-radius: 1rem;"></iframe>`}
-                                            onClick={(e) => (e.target as HTMLTextAreaElement).select()}
-                                            className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] text-slate-500 outline-none resize-none font-mono leading-relaxed focus:border-[var(--theme-color)] transition-colors"
-                                        />
-                                        <button
-                                            onClick={() => copyToClipboard(`<iframe src="${window.location.href}" width="100%" height="600" frameborder="0" allow="autoplay" style="border-radius: 1rem;"></iframe>`, 'embed')}
-                                            className={`w-12 rounded-xl transition-all flex items-center justify-center flex-shrink-0 self-stretch ${copiedId === 'embed' ? 'bg-green-500 text-white shadow-green-200' : 'bg-[var(--theme-color)] text-white hover:opacity-90 shadow-sm'} shadow-md`}
-                                            title="Copy embed code"
-                                        >
-                                            {copiedId === 'embed' ? <Check size={16} /> : <Copy size={16} />}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <button
-                                onClick={() => setShowShareModal(false)}
-                                className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold text-sm hover:bg-slate-900 transition-all shadow-lg active:scale-[0.98]"
-                            >
-                                Back to Clips
-                            </button>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            <ShareModal
+                isOpen={showShareModal}
+                onClose={() => setShowShareModal(false)}
+                themeColor={themeColor}
+            />
         </div >
     );
 }
