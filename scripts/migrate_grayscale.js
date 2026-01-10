@@ -1,7 +1,7 @@
 import pg from 'pg';
 const { Client } = pg;
 
-const connectionString = "postgresql://postgres.gksbxdajrnjktxcninxr:yo9VQO3zwDlSP4eu@db.gksbxdajrnjktxcninxr.supabase.co:6543/postgres";
+const connectionString = process.env.DATABASE_URL || "YOUR_DATABASE_URL_HERE";
 
 async function runSql() {
     const client = new Client({
