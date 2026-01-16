@@ -358,8 +358,8 @@ export default function Admin() {
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: window.location.hostname === 'vo.built.at'
-                    ? 'https://vo.built.at/admin'
+                redirectTo: window.location.hostname === 'studio.sayingthings.com'
+                    ? 'https://studio.sayingthings.com/admin'
                     : window.location.origin + '/admin'
             }
         });
