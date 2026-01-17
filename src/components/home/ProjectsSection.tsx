@@ -53,7 +53,7 @@ export default function ProjectsSection({
                     </div>
 
                     {/* Playlist Sidebar */}
-                    <div className="lg:w-1/3 flex flex-col gap-3 h-[500px] overflow-y-auto pr-2">
+                    <div className="lg:w-1/3 flex flex-col gap-3 lg:h-[500px] lg:overflow-y-auto lg:pr-2">
                         {videos.map((vid) => (
                             <button
                                 key={vid.id}

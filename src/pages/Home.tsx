@@ -376,7 +376,7 @@ export default function Home() {
         .filter(section => !(siteContent.hiddenSections || []).includes(section))
         .map((section, index) => {
           const isFirst = index === 0;
-          const basePadding = isFirst ? "pt-32 pb-6 md:pt-40 md:pb-10" : "py-6 md:py-10";
+          const basePadding = isFirst ? "pt-32 pb-4 md:pt-40 md:pb-10" : "py-4 md:py-10";
 
           switch (section) {
             case 'demos':

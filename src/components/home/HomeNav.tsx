@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Menu } from "lucide-react";
+import { useEffect, useRef } from "react";
 
 interface HomeNavProps {
     isScrolled: boolean;
@@ -10,8 +11,22 @@ interface HomeNavProps {
 }
 
 export default function HomeNav({ isScrolled, siteName, navLinks, mobileMenuOpen, setMobileMenuOpen }: HomeNavProps) {
+    const navRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (mobileMenuOpen && navRef.current && !navRef.current.contains(event.target as Node)) {
+                setMobileMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [mobileMenuOpen, setMobileMenuOpen]);
+
     return (
         <nav
+            ref={navRef}
             className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled ? "bg-white/80 backdrop-blur-md shadow-sm py-4 border-b border-slate-200" : "bg-transparent py-6"
                 }`}
         >
