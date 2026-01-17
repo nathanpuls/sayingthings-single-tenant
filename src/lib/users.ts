@@ -50,6 +50,7 @@ export async function getSingleTenantUser(): Promise<string | null> {
         const { data, error } = await supabase
             .from('site_settings')
             .select('user_id')
+            .order('created_at', { ascending: true })
             .limit(1)
             .maybeSingle();
 
